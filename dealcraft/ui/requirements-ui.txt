@@ -1,0 +1,17 @@
+# =============================================================
+# DealCraft Flask UI — Dependencies
+# File: ui/requirements-ui.txt
+# Install: pip install -r requirements-ui.txt
+# =============================================================
+
+# Web framework
+flask>=3.0.0
+
+# PDF text extraction
+PyPDF2>=3.0.0
+
+# DOCX text extraction
+python-docx>=1.1.0
+
+# Secure file handling (included with Flask but explicit is better)
+werkzeug>=3.0.0

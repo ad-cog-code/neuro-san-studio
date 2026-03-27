@@ -1,0 +1,28 @@
+# =============================================================
+# DealCraft — Leadership Review Agent
+# File: agents/leadership-review-agent.hocon
+# Version: v0.1.0
+# Description: Refines an existing BD package based on
+#              strategic inputs from Cognizant leadership.
+#              Can be invoked multiple times iteratively.
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "leadership-review-agent": {
+
+            "name": "leadership-review-agent",
+            "description": "Specialist agent that takes an existing DealCraft BD package and leadership feedback/strategic inputs, and produces a refined, improved version. Tracks revision number (R1, R2, R3...) and includes a Revision Summary. Can be called multiple times iteratively.",
+
+            # Path to the system prompt for this agent
+            "instructions": "prompts/leadership-review-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # Leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

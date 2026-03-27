@@ -1,0 +1,24 @@
+# Sample Client Brief
+## NorthBridge Bank PLC
+> File: samples/sample-client-brief.txt
+> Purpose: Input file for testing client-research-agent
+> Version: v0.1.0
+
+---
+
+## Instructions for Use
+Paste the content below as input to the `client-research-agent`
+when running a test without a full RFP document.
+
+---
+
+## Client Input
+
+**Client Name:** NorthBridge Bank PLC
+**Industry:** Banking & Financial Services
+**Headquarters:** London, United Kingdom
+**Geography:** Europe & Asia-Pacific (12 countries)
+**Deal Context:** Digital Transformation — Core Banking Modernization & CX Overhaul
+**Estimated Deal Size:** USD 25–40 Million over 3 years
+**Opportunity Type:** Competitive RFP (RFP Reference: NBB-GTI-2026-DT-047)
+**Submission Deadline:** April 30, 2026

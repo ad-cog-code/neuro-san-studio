@@ -1,0 +1,164 @@
+# REQUEST FOR PROPOSAL (RFP)
+## Digital Transformation Program — Core Banking & Customer Experience Modernization
+
+---
+
+**Issuing Organization:** NorthBridge Bank PLC
+**Department:** Group Technology & Innovation
+**RFP Reference Number:** NBB-GTI-2026-DT-047
+**Issue Date:** March 26, 2026
+**Submission Deadline:** April 30, 2026 — 5:00 PM GMT
+**Engagement Type:** Multi-year Managed Transformation Program
+**Estimated Contract Value:** USD 25–40 Million over 3 years
+
+---
+
+## SECTION 1 — ABOUT NORTHBRIDGE BANK PLC
+
+NorthBridge Bank PLC is a mid-sized retail and commercial bank headquartered in London, UK, with operations across 12 countries in Europe and Asia-Pacific. Founded in 1987, NorthBridge serves approximately 4.2 million retail customers and 38,000 corporate clients. The bank reported revenues of GBP 2.1 billion in FY2025.
+
+NorthBridge has experienced significant competitive pressure from digital-native challenger banks such as Monzo, Revolut, and Starling, as well as from larger tier-1 banks accelerating their own digital agendas. Customer satisfaction scores have declined 14% over the past two years, primarily attributed to outdated digital interfaces and slow service resolution times.
+
+The bank's current core banking platform — FinnCore 3.2 — was deployed in 2009 and is approaching end-of-support in Q4 2027. Legacy infrastructure contributes to an average transaction processing time of 4.2 seconds, significantly above the industry benchmark of under 1 second.
+
+---
+
+## SECTION 2 — PURPOSE OF THIS RFP
+
+NorthBridge Bank is seeking proposals from qualified IT services partners to lead and deliver a comprehensive **Digital Transformation Program** spanning three key areas:
+
+1. **Core Banking Platform Modernization** — Migration from FinnCore 3.2 to a modern, cloud-native core banking platform
+2. **Customer Experience (CX) Overhaul** — Redesign and rebuild of digital channels (mobile app, internet banking, and API banking)
+3. **AI & Data Enablement** — Implementation of an AI-powered decisioning layer for personalization, fraud detection, and intelligent customer service
+
+---
+
+## SECTION 3 — SCOPE OF WORK
+
+### 3.1 Core Banking Modernization
+- Assessment and documentation of current FinnCore 3.2 architecture
+- Vendor evaluation and recommendation for target core banking platform (e.g., Temenos, Thought Machine, Mambu, or equivalent)
+- Data migration strategy and execution — customer records, accounts, transactions, and product data
+- Parallel run and cutover planning
+- Decommissioning of legacy FinnCore 3.2 environment
+- Integration with existing payment rails (SWIFT, SEPA, FPS)
+
+### 3.2 Digital Channel Modernization
+- UX research and customer journey redesign
+- Mobile banking app rebuild (iOS and Android) — targeting 99.9% uptime SLA
+- Internet banking portal redesign — accessibility compliant (WCAG 2.1 AA)
+- Open Banking API development — PSD2 and UK Open Banking Standards compliant
+- Integration with new core banking platform
+
+### 3.3 AI & Data Enablement
+- Implementation of a real-time fraud detection model (target: reduce fraud losses by 30%)
+- AI-powered customer personalization engine — product recommendations, next best action
+- Intelligent virtual assistant (IVA) for customer service — target 40% deflection of contact centre calls
+- Unified data platform on cloud — single source of truth for customer 360 view
+
+### 3.4 Program Management & Governance
+- End-to-end program management office (PMO)
+- Risk and compliance integration (FCA, PRA, GDPR, and Basel III)
+- Change management and staff training
+- Vendor and third-party management
+
+---
+
+## SECTION 4 — KEY REQUIREMENTS
+
+### 4.1 Mandatory Requirements (Pass/Fail)
+- Minimum 10 years of experience in banking technology transformations
+- Proven delivery of at least 2 core banking migrations in Europe in the last 5 years
+- ISO 27001 and SOC 2 Type II certified
+- Active partnerships with at least one tier-1 core banking platform vendor
+- Dedicated UK-based delivery team with onshore governance capability
+- Compliance expertise: FCA, PRA, GDPR, PSD2, UK Open Banking
+
+### 4.2 Preferred Requirements
+- Experience with cloud platforms: AWS, Azure, or Google Cloud
+- Existing accelerators or frameworks for core banking migration
+- AI/ML capability with proven use cases in banking
+- Experience with challenger bank digital models
+- DevSecOps and agile delivery methodology
+
+---
+
+## SECTION 5 — EVALUATION CRITERIA
+
+Proposals will be evaluated on the following weighted criteria:
+
+| Criteria | Weightage |
+|----------|-----------|
+| Technical Solution & Approach | 30% |
+| Relevant Experience & Case Studies | 25% |
+| Proposed Team & Governance | 15% |
+| Innovation & Differentiators | 15% |
+| Commercial Proposal & Value | 15% |
+
+**Minimum qualifying score:** 70% overall to be considered for shortlisting.
+**Shortlisted vendors** will be invited for a 2-hour presentation to the NorthBridge evaluation panel in May 2026.
+
+---
+
+## SECTION 6 — TIMELINE & MILESTONES
+
+| Milestone | Date |
+|-----------|------|
+| RFP Issue Date | March 26, 2026 |
+| Clarification Questions Deadline | April 10, 2026 |
+| NorthBridge Responses to Clarifications | April 17, 2026 |
+| Proposal Submission Deadline | April 30, 2026 |
+| Shortlisting Notification | May 12, 2026 |
+| Vendor Presentations | May 19–23, 2026 |
+| Contract Award | June 16, 2026 |
+| Program Kick-off | July 1, 2026 |
+| Phase 1 Completion (Core Banking Assessment) | December 2026 |
+| Phase 2 Completion (Digital Channels Live) | June 2027 |
+| Phase 3 Completion (Full Transformation) | December 2028 |
+
+---
+
+## SECTION 7 — SUBMISSION REQUIREMENTS
+
+Proposals must include the following sections:
+
+1. Executive Summary (max 2 pages)
+2. Understanding of NorthBridge's Requirements
+3. Proposed Solution & Technical Approach
+4. Relevant Experience & Case Studies (minimum 2 banking references)
+5. Proposed Team Structure & CVs of Key Personnel
+6. Program Plan & Governance Model
+7. Risk Management Approach
+8. Commercial Proposal (separate sealed document)
+9. Responses to Mandatory Requirements
+
+**Submission format:** PDF via secure portal — [rfp-portal.northbridgebank.com](rfp-portal.northbridgebank.com)
+**Page limit:** 80 pages (excluding appendices and commercial proposal)
+**Font:** Arial 11pt minimum
+
+---
+
+## SECTION 8 — TERMS & CONDITIONS
+
+- NorthBridge Bank reserves the right to reject any or all proposals without obligation
+- All submitted materials become the property of NorthBridge Bank
+- Vendors must sign and return the NDA before receiving clarification responses
+- Subcontracting is permitted but must be disclosed — prime contractor remains accountable
+- NorthBridge Bank is not liable for any costs incurred in preparing proposals
+- All data shared under this RFP is subject to strict confidentiality obligations
+
+---
+
+## SECTION 9 — CONTACT & QUERIES
+
+All queries must be submitted in writing via email only:
+
+**RFP Coordinator:** Sarah Mitchell
+**Title:** Head of Vendor Management, Group Technology
+**Email:** rfp-dt-2026@northbridgebank.com
+**Note:** No phone queries will be entertained during the RFP process
+
+---
+
+*NorthBridge Bank PLC is committed to a fair and transparent procurement process.*
+*RFP Reference: NBB-GTI-2026-DT-047*

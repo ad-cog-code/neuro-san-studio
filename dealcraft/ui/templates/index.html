@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DealCraft — AI-Powered BD Command Center</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dealcraft.css') }}"/>
+</head>
+
+<body>
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-name">DealCraft</span>
+        <span class="logo-tag">BD Command Center</span>
+      </div>
+      <div class="header-meta">
+        <span class="badge">v0.1.0</span>
+        <span class="badge badge-ai">Powered by Claude AI</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════ MAIN ═══════════════════ -->
+  <main class="main">
+
+    <!-- ─── SECTION 1: INPUT FORM ─── -->
+    <section id="section-input" class="section">
+
+      <div class="section-header">
+        <h1 class="section-title">Generate Your BD Package</h1>
+        <p class="section-subtitle">
+          Enter a client name and optionally upload or paste an RFP document.
+          DealCraft will run 5 specialist AI agents and produce a complete,
+          presentation-ready BD package in minutes.
+        </p>
+      </div>
+
+      <form id="dealcraft-form" class="card form-card">
+
+        <!-- Client Name -->
+        <div class="form-group">
+          <label class="form-label" for="client_name">
+            Client / Company Name <span class="required">*</span>
+          </label>
+          <input
+            type="text"
+            id="client_name"
+            name="client_name"
+            class="form-input"
+            placeholder="e.g. NorthBridge Bank PLC"
+            required
+          />
+          <span class="form-hint">The company you are preparing the BD package for.</span>
+        </div>
+
+        <!-- RFP File Upload -->
+        <div class="form-group">
+          <label class="form-label">Upload RFP Document <span class="optional">(optional)</span></label>
+          <div class="upload-area" id="upload-area">
+            <input
+              type="file"
+              id="rfp_file"
+              name="rfp_file"
+              class="upload-input"
+              accept=".pdf,.docx,.txt"
+            />
+            <div class="upload-content">
+              <span class="upload-icon">📄</span>
+              <p class="upload-text">
+                Drag & drop or <span class="upload-link">browse</span> to upload
+              </p>
+              <p class="upload-hint">Supports PDF, DOCX, TXT — max 16 MB</p>
+            </div>
+            <div class="upload-filename" id="upload-filename"></div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="or-divider"><span>or paste RFP text directly</span></div>
+
+        <!-- RFP Text Area -->
+        <div class="form-group">
+          <label class="form-label" for="rfp_text">
+            RFP / RFI Document Text <span class="optional">(optional)</span>
+          </label>
+          <textarea
+            id="rfp_text"
+            name="rfp_text"
+            class="form-textarea"
+            rows="10"
+            placeholder="Paste the full RFP or RFI document text here..."
+          ></textarea>
+          <span class="form-hint">
+            If both a file and text are provided, the uploaded file takes priority.
+          </span>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-msg" id="error-msg"></div>
+
+        <!-- Submit -->
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="btn-submit">
+            <span class="btn-icon">⚡</span>
+            Generate BD Package
+          </button>
+          <p class="form-disclaimer">
+            5 AI agents will run in sequence — typically takes 2–4 minutes.
+          </p>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- ─── SECTION 2: PROGRESS TRACKER ─── -->
+    <section id="section-progress" class="section hidden">
+
+      <div class="section-header">
+        <h2 class="section-title">Running DealCraft Agents</h2>
+        <p class="section-subtitle" id="progress-client-label">
+          Preparing BD package for <strong id="progress-client-name"></strong>
+        </p>
+      </div>
+
+      <div class="card progress-card">
+
+        <!-- Overall progress bar -->
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <p class="progress-status-text" id="progress-status-text">Initializing...</p>
+
+        <!-- Agent cards -->
+        <div class="agents-grid">
+
+          <div class="agent-card" id="agent-client-research-agent">
+            <div class="agent-icon">🔎</div>
+            <div class="agent-info">
+              <div class="agent-name">Client Research</div>
+              <div class="agent-status">Waiting</div>
+            </div>
+            <div class="agent-indicator"></div>
+          </div>
+
+          <div class="agent-card" id="agent-rfp-analyzer-agent">
+            <div class="agent-icon">📄</div>
+            <div class="agent-info">
+              <div class="agent-name">RFP Analysis</div>
+              <div class="agent-status">Waiting</div>
+            </div>
+            <div class="agent-indicator"></div>
+          </div>
+
+          <div class="agent-card" id="agent-competitive-intel-agent">
+            <div class="agent-icon">⚔️</div>
+            <div class="agent-info">
+              <div class="agent-name">Competitive Intel</div>
+              <div class="agent-status">Waiting</div>
+            </div>
+            <div class="agent-indicator"></div>
+          </div>
+
+          <div class="agent-card" id="agent-proposal-writer-agent">
+            <div class="agent-icon">✍️</div>
+            <div class="agent-info">
+              <div class="agent-name">Proposal Writing</div>
+              <div class="agent-status">Waiting</div>
+            </div>
+            <div class="agent-indicator"></div>
+          </div>
+
+          <div class="agent-card" id="agent-report-assembler-agent">
+            <div class="agent-icon">📦</div>
+            <div class="agent-info">
+              <div class="agent-name">Report Assembly</div>
+              <div class="agent-status">Waiting</div>
+            </div>
+            <div class="agent-indicator"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECTION 3: OUTPUT ─── -->
+    <section id="section-output" class="section hidden">
+
+      <div class="section-header">
+        <h2 class="section-title">BD Package Ready</h2>
+        <p class="section-subtitle">
+          Your DealCraft BD Package has been generated for
+          <strong id="output-client-name"></strong>.
+          Review the output below and download when ready.
+        </p>
+      </div>
+
+      <!-- Action bar -->
+      <div class="output-actions">
+        <button class="btn btn-success" id="btn-download">
+          ⬇️ Download BD Package
+        </button>
+        <button class="btn btn-outline" id="btn-new">
+          ＋ New Opportunity
+        </button>
+      </div>
+
+      <!-- BD Package output -->
+      <div class="card output-card">
+        <pre id="output-content" class="output-pre"></pre>
+      </div>
+
+      <!-- ─── LEADERSHIP REVIEW PANEL ─── -->
+      <div class="card leadership-card" id="leadership-card">
+
+        <div class="leadership-header">
+          <div>
+            <h3 class="leadership-title">🏆 Leadership Review</h3>
+            <p class="leadership-subtitle">
+              Provide strategic direction or feedback to refine this BD package.
+              You can do this multiple times — each pass produces a new revision.
+            </p>
+          </div>
+          <div class="revision-badge" id="revision-badge">Draft v0.1</div>
+        </div>
+
+        <!-- File upload -->
+        <div class="form-group">
+          <label class="form-label">
+            Upload Leadership Feedback <span class="optional">(optional)</span>
+          </label>
+          <div class="upload-area" id="leadership-upload-area">
+            <input type="file" id="leadership_file" class="upload-input" accept=".pdf,.docx,.txt"/>
+            <div class="upload-content">
+              <span class="upload-icon">📋</span>
+              <p class="upload-text">
+                Drag & drop or <span class="upload-link">browse</span>
+              </p>
+              <p class="upload-hint">Upload a feedback document (PDF, DOCX, TXT)</p>
+            </div>
+            <div class="upload-filename" id="leadership-upload-filename"></div>
+          </div>
+        </div>
+
+        <!-- Or divider -->
+        <div class="or-divider"><span>or type feedback directly</span></div>
+
+        <!-- Text input -->
+        <div class="form-group">
+          <label class="form-label" for="leadership_text">
+            Leadership Feedback / Strategic Direction
+          </label>
+          <textarea
+            id="leadership_text"
+            class="form-textarea"
+            rows="6"
+            placeholder="e.g. Strengthen the AI differentiator section. Lead with our Google partnership more prominently. The executive summary needs to be punchier — cut it to 3 bullets max per row. Add a reference to our recent banking win in Belgium..."
+          ></textarea>
+        </div>
+
+        <div class="error-msg" id="leadership-error-msg"></div>
+
+        <!-- Revision history -->
+        <div class="revision-history" id="revision-history"></div>
+
+        <!-- Submit -->
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-refine">
+            <span class="btn-icon">🔄</span>
+            Regenerate BD Package
+          </button>
+          <p class="form-disclaimer">
+            The agent will apply your feedback and produce a revised BD package.
+          </p>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════ FOOTER ═══════════════════ -->
+  <footer class="footer">
+    <p>DealCraft v0.1.0 &nbsp;·&nbsp; AI-Powered BD Command Center
+       &nbsp;·&nbsp; Built on Neuro-SAN Studio &nbsp;·&nbsp; Cognizant AI Lab</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/dealcraft.js') }}"></script>
+</body>
+</html>

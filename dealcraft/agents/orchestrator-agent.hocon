@@ -1,0 +1,48 @@
+# =============================================================
+# DealCraft — Orchestrator Agent
+# File: agents/orchestrator-agent.hocon
+# Version: v0.1.0
+# Description: Central coordinator — delegates tasks to all
+#              specialist agents and manages the workflow
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "orchestrator-agent": {
+
+            "name": "orchestrator-agent",
+            "description": "Central coordinator of the DealCraft BD pipeline. Accepts user input (client name and/or RFP document), delegates tasks to specialist agents in sequence, and ensures a complete BD package is produced.",
+
+            # Path to the system prompt for this agent
+            "instructions": "prompts/orchestrator-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # Downstream agents this orchestrator can call
+            "tools": [
+                {
+                    "name": "client-research-agent",
+                    "description": "Researches the client company and produces a Client Intelligence Brief. Call this first with the client name."
+                },
+                {
+                    "name": "rfp-analyzer-agent",
+                    "description": "Analyzes the RFP or RFI document and extracts key requirements, evaluation criteria, and fit analysis. Call this when an RFP document is provided."
+                },
+                {
+                    "name": "competitive-intel-agent",
+                    "description": "Identifies likely competitors and produces a Competitive Positioning Sheet. Call this after client research is complete."
+                },
+                {
+                    "name": "proposal-writer-agent",
+                    "description": "Drafts a tailored proposal using all research inputs. Call this after all research agents have completed."
+                },
+                {
+                    "name": "report-assembler-agent",
+                    "description": "Assembles all agent outputs into a final BD Package. Always call this last."
+                }
+            ]
+        }
+    }
+}

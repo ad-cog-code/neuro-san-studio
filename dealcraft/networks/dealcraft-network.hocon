@@ -1,0 +1,35 @@
+# =============================================================
+# DealCraft — Agent Network Topology
+# File: networks/dealcraft-network.hocon
+# Version: v0.1.0
+# Description: Defines the multi-agent network for DealCraft
+#              AI-Powered BD Command Center
+# =============================================================
+
+{
+    "dealcraft_network": {
+
+        # ---------------------------------------------------------
+        # Network Metadata
+        # ---------------------------------------------------------
+        "name": "dealcraft-network",
+        "description": "DealCraft AI-Powered BD Command Center — orchestrates multiple specialist agents to produce a complete BD package from a client name or RFP document.",
+        "version": "0.1.0",
+
+        # ---------------------------------------------------------
+        # Agent Definitions
+        # ---------------------------------------------------------
+        "agents": [
+
+            # Entry point — coordinates all agents
+            ${?agent_definitions.orchestrator-agent},
+
+            # Specialist agents
+            ${?agent_definitions.client-research-agent},
+            ${?agent_definitions.rfp-analyzer-agent},
+            ${?agent_definitions.competitive-intel-agent},
+            ${?agent_definitions.proposal-writer-agent},
+            ${?agent_definitions.report-assembler-agent}
+        ]
+    }
+}
