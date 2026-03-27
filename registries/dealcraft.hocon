@@ -1,0 +1,133 @@
+# =============================================================
+# DealCraft — AI-Powered BD Command Center
+# File: registries/dealcraft.hocon
+# Version: v0.1.0
+# Description: Multi-agent network that produces a complete
+#              BD package from a client name + optional RFP.
+#              Agents: orchestrator → client-research,
+#              rfp-analyzer, competitive-intel,
+#              proposal-writer, report-assembler
+#              Plus: leadership-review (iterative refinement)
+# =============================================================
+
+{
+    # Load shared LLM configuration (claude-sonnet-4-6 or Gemini)
+    # Path is relative to the repo root where python -m run is executed
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "description": "DealCraft is a multi-agent BD Command Center for Cognizant pre-sales. Given a client name and optional RFP document, it runs a coordinated pipeline of specialist agents to produce a complete BD package: Client Intelligence Brief, RFP Analysis, Competitive Positioning, tailored Proposal, and Final Report. Optionally supports iterative Leadership Review.",
+        "tags": ["dealcraft", "presales", "bd", "rfp", "cognizant"],
+        "sample_queries": [
+            "Generate a BD package for Acme Corp",
+            "Analyze this RFP from Wells Fargo and produce a full BD package",
+            "Research HSBC and prepare a competitive proposal for their digital transformation RFP",
+            "Create a BD package for Maersk — no RFP, cold outreach"
+        ]
+    },
+
+    "tools": [
+
+        # =========================================================
+        # FRONT MAN — Orchestrator Agent
+        # Must be first. Handles all user interaction and delegates
+        # to specialist agents in sequence.
+        # =========================================================
+        {
+            "name": "orchestrator-agent",
+            "function": {
+                "description": "Central coordinator of the DealCraft BD pipeline. Accepts user input (client name and/or RFP document), delegates tasks to specialist agents in sequence, and ensures a complete BD package is produced."
+            },
+            "instructions": "dealcraft/prompts/orchestrator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "client-research-agent",
+                "rfp-analyzer-agent",
+                "competitive-intel-agent",
+                "proposal-writer-agent",
+                "report-assembler-agent"
+            ]
+        },
+
+        # =========================================================
+        # Specialist Agent 1 — Client Research
+        # =========================================================
+        {
+            "name": "client-research-agent",
+            "function": {
+                "description": "Researches the client company and produces a structured Client Intelligence Brief covering company overview, strategic priorities, pain points, recent news, technology landscape, and Cognizant relationship."
+            },
+            "instructions": "dealcraft/prompts/client-research-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Specialist Agent 2 — RFP Analyzer
+        # =========================================================
+        {
+            "name": "rfp-analyzer-agent",
+            "function": {
+                "description": "Analyzes the RFP or RFI document and extracts key requirements, evaluation criteria, submission details, and Cognizant fit analysis. Produces a structured RFP Intelligence Report."
+            },
+            "instructions": "dealcraft/prompts/rfp-analyzer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Specialist Agent 3 — Competitive Intel
+        # =========================================================
+        {
+            "name": "competitive-intel-agent",
+            "function": {
+                "description": "Identifies likely competitors bidding on this deal and produces a Competitive Positioning Sheet with win themes and differentiators for Cognizant."
+            },
+            "instructions": "dealcraft/prompts/competitive-intel-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Specialist Agent 4 — Proposal Writer
+        # =========================================================
+        {
+            "name": "proposal-writer-agent",
+            "function": {
+                "description": "Drafts a tailored proposal for the client using all research inputs — client brief, RFP analysis, and competitive intel. Produces a structured proposal document."
+            },
+            "instructions": "dealcraft/prompts/proposal-writer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Specialist Agent 5 — Report Assembler
+        # =========================================================
+        {
+            "name": "report-assembler-agent",
+            "function": {
+                "description": "Assembles all agent outputs into a final BD Package with an Executive Summary. Always called last by the orchestrator."
+            },
+            "instructions": "dealcraft/prompts/report-assembler-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Optional Agent — Leadership Review
+        # Iterative refinement based on leadership feedback.
+        # Not in the main pipeline — called on demand.
+        # =========================================================
+        {
+            "name": "leadership-review-agent",
+            "function": {
+                "description": "Takes an existing DealCraft BD package and leadership feedback, and produces a refined improved version. Tracks revision number (R1, R2, R3...). Can be called multiple times iteratively."
+            },
+            "instructions": "dealcraft/prompts/leadership-review-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+
+    ]
+}
