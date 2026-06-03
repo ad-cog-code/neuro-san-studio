@@ -1,0 +1,136 @@
+{
+    include "registries/llm_config.hocon",
+    "llm_config": ${llm_config_sonnet},             # regulated drug-safety work needs highest accuracy
+
+    "metadata": {
+        "description": "Pharmacovigilance Intelligence Platform — Regulated Drug Safety AI Agent Network. 6 agents covering AE extraction, MedDRA coding, WHO-UMC causality assessment, PRR-based signal detection, and EU GVP Module VI literature screening. All outputs advisory only — DSA/Medical Reviewer confirmation required before case advances.",
+        "tags": ["pharmacovigilance", "drug-safety", "ICH-E2A", "MedDRA", "WHO-UMC", "GVP", "regulated", "ICSR"]
+    },
+
+    "tools": [
+        {
+            "name": "pv_orchestrator",
+            "function": {
+                "description": "Pharmacovigilance orchestrator. Routes case processing requests to specialist AI agents based on request_type. ADVISORY ONLY — all outputs require human DSA confirmation before case advances in the BPMN workflow."
+            },
+            "instructions": "pharmacovigilance-intelligence/prompts/pv-orchestrator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "ae_extraction_agent",
+                "meddra_coding_agent",
+                "causality_assessment_agent",
+                "signal_detection_agent",
+                "literature_relevance_agent"
+            ]
+        },
+        {
+            "name": "ae_extraction_agent",
+            "function": {
+                "description": "Extracts structured ICSR data from free-text adverse event narratives. Identifies all four ICH E2A validity elements plus concomitant medications and seriousness criteria. ADVISORY ONLY — DSA must confirm each extracted field.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "narrative_text": {
+                            "type": "string",
+                            "description": "Free-text adverse event narrative from which to extract structured ICSR data."
+                        }
+                    },
+                    "required": ["narrative_text"]
+                }
+            },
+            "instructions": "pharmacovigilance-intelligence/prompts/ae-extraction-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "meddra_coding_agent",
+            "function": {
+                "description": "Maps verbatim adverse event terms to MedDRA Preferred Terms (PTs). Returns top-3 candidate PTs per term with PT code, SOC code, confidence score, and clinical rationale. ADVISORY ONLY — Drug Safety Associate must select the correct PT.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "event_terms": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "List of verbatim adverse event terms to map to MedDRA PTs."
+                        }
+                    },
+                    "required": ["event_terms"]
+                }
+            },
+            "instructions": "pharmacovigilance-intelligence/prompts/meddra-coding-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "causality_assessment_agent",
+            "function": {
+                "description": "Assesses drug-adverse event causality using WHO-UMC scale. Evaluates 5 key criteria (time relationship, dechallenge, rechallenge, alternative causes, pharmacological plausibility). Returns WHO-UMC category, sub-criteria assessments, overall rationale, and confidence score. ADVISORY ONLY — Medical Reviewer (qualified physician) makes the final causality determination.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "case_data": {
+                            "type": "object",
+                            "description": "Structured case data: patient, suspect_products, concomitant_medications, adverse_events, seriousness_criteria."
+                        }
+                    },
+                    "required": ["case_data"]
+                }
+            },
+            "instructions": "pharmacovigilance-intelligence/prompts/causality-assessment-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "signal_detection_agent",
+            "function": {
+                "description": "Detects pharmacovigilance safety signals from ICSR case patterns. Computes Proportional Reporting Ratio (PRR) using Evans criteria (PRR >= 2 with N >= 3 = candidate signal). Returns signal candidates with case counts, PRR approximation, priority classification, and investigation rationale. ADVISORY ONLY — Signal Analyst reviews and initiates formal signal assessment.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {
+                            "type": "integer",
+                            "description": "Product primary key from products table."
+                        },
+                        "event_term": {
+                            "type": "string",
+                            "description": "Optional specific AE term to analyse; if omitted, agent finds top signals for the product."
+                        }
+                    },
+                    "required": ["product_id"]
+                }
+            },
+            "instructions": "pharmacovigilance-intelligence/prompts/signal-detection-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "literature_relevance_agent",
+            "function": {
+                "description": "Scores medical literature abstracts for pharmacovigilance relevance against monitored products. Returns relevance score (0-100), recommendation (Screen In/Screen Out/Needs Full Text Review), matched product/AE terms, and clinical rationale. ADVISORY ONLY — Literature Screener makes final Screen In/Out decision.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "abstract_text": {
+                            "type": "string",
+                            "description": "Medical publication abstract text to assess for PV relevance."
+                        },
+                        "product_names": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "List of monitored product trade names and/or active substances."
+                        }
+                    },
+                    "required": ["abstract_text", "product_names"]
+                }
+            },
+            "instructions": "pharmacovigilance-intelligence/prompts/literature-relevance-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+    ]
+}

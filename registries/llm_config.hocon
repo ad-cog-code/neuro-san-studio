@@ -1,0 +1,90 @@
+{
+    # This file is NOT an agent network HOCON.
+    # It defines a set of key-value pairs for substitution, typically used in agent network HOCON files.
+    # Each key can be referenced in agent configs using the ${key} syntax.
+    # Do not define agents or tools directly here—this file only provides reusable values.
+
+    # ── LiteLLM Proxy Integration ────────────────────────────────────────────────
+    # Neuro SAN talks to the LiteLLM proxy (localhost:4000) instead of Anthropic.
+    # The proxy handles model selection, fallbacks, retries, and logging centrally.
+    # Apps and networks never hold an ANTHROPIC_API_KEY — the proxy does.
+    #
+    # To start the proxy:
+    #   cd C:\my-projects\litellm-proxy && python start.py
+    #
+    # Chain names (model_name values):
+    #   fast      — Haiku 4.5, no thinking       (1–3 s)   default for all networks
+    #   tasks     — Sonnet 4.6, no thinking       (5–15 s)
+    #   analysis  — Sonnet 4.6, 3k thinking       (15–40 s)
+    #   research  — Opus 4.8, 8k thinking         (30–90 s)
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    # ── Default: fast (Haiku 4.5 — fast, cheap) ──────────────────────────────
+    # Used by all networks unless overridden.
+    # Override at network level by adding after the include line:
+    #   "llm_config": ${llm_config_tasks},
+    "llm_config": {
+        "class": "openai",                                  # routes via LiteLLM proxy
+        "model_name": "fast",                               # Haiku 4.5 — 1–3 s
+        "openai_api_key": "sk-litellm-local-ad-office-key",
+        "openai_api_base": "http://localhost:4000",
+        "max_tokens": 8192,
+        "max_execution_seconds": 600,
+    }
+
+    # ── Tasks: Sonnet 4.6 (deliverables, drafts, code) ───────────────────────
+    # Override: add  "llm_config": ${llm_config_tasks},  after the include.
+    "llm_config_tasks": {
+        "class": "openai",
+        "model_name": "tasks",                              # Sonnet 4.6 — 5–15 s
+        "openai_api_key": "sk-litellm-local-ad-office-key",
+        "openai_api_base": "http://localhost:4000",
+        "max_tokens": 8192,
+        "max_execution_seconds": 600,
+    }
+
+    # ── Sonnet alias — same as tasks, kept for backward compat ───────────────
+    # Networks that override with ${llm_config_sonnet} continue to work.
+    "llm_config_sonnet": {
+        "class": "openai",
+        "model_name": "tasks",                              # Sonnet 4.6 — 5–15 s
+        "openai_api_key": "sk-litellm-local-ad-office-key",
+        "openai_api_base": "http://localhost:4000",
+        "max_tokens": 8192,
+        "max_execution_seconds": 600,
+    }
+
+    # ── Analysis: Sonnet 4.6 + extended thinking (scoring, evaluation) ───────
+    # Override: add  "llm_config": ${llm_config_analysis},  after the include.
+    "llm_config_analysis": {
+        "class": "openai",
+        "model_name": "analysis",                           # Sonnet 4.6 + 3k thinking — 15–40 s
+        "openai_api_key": "sk-litellm-local-ad-office-key",
+        "openai_api_base": "http://localhost:4000",
+        "max_tokens": 8192,
+        "max_execution_seconds": 600,
+    }
+
+    # ── Research: Opus 4.8 + extended thinking (deep synthesis) ─────────────
+    # Reserve for tasks that genuinely require the best reasoning.
+    # Override: add  "llm_config": ${llm_config_research},  after the include.
+    "llm_config_research": {
+        "class": "openai",
+        "model_name": "research",                           # Opus 4.8 + 8k thinking — 30–90 s
+        "openai_api_key": "sk-litellm-local-ad-office-key",
+        "openai_api_base": "http://localhost:4000",
+        "max_tokens": 8192,
+        "max_execution_seconds": 600,
+    }
+
+    # ── Opus alias — maps to research chain, kept for backward compat ────────
+    # Networks that override with ${llm_config_opus} continue to work.
+    "llm_config_opus": {
+        "class": "openai",
+        "model_name": "research",                           # Opus 4.8 + 8k thinking — 30–90 s
+        "openai_api_key": "sk-litellm-local-ad-office-key",
+        "openai_api_base": "http://localhost:4000",
+        "max_tokens": 8192,
+        "max_execution_seconds": 600,
+    }
+}

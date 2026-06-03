@@ -1,0 +1,109 @@
+{
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "description": "KYC risk advisory network for US retail bank onboarding. Coordinates identity review, sanctions/PEP screening, and risk synthesis to produce a non-binding compliance advisory.",
+        "tags": ["kyc", "compliance", "aml", "onboarding", "banking"]
+    },
+
+    "tools": [
+        {
+            "name": "kyc_orchestrator",
+            "function": {
+                "description": "KYC risk advisory orchestrator for US retail bank onboarding. Receives PII-scrubbed application data, coordinates sub-agent analysis (identity review, screening interpretation, risk synthesis), and produces a non-binding compliance advisory for the KYC Analyst and Compliance Officer."
+            },
+            "instructions": "kyc-onboarding/prompts/kyc_orchestrator.md",
+            "llm_config": ${llm_config},
+            "tools": ["identity_reviewer", "screening_analyst", "risk_advisor"]
+        },
+        {
+            "name": "identity_reviewer",
+            "function": {
+                "description": "Reviews CIP (Customer Identification Program) identity data for completeness and risk indicators. Flags high-risk nationalities (FATF grey/black list), high-risk occupations (cash-intensive businesses, MSBs, cryptocurrency), and identity document risk signals. Does NOT receive or process any PII.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nationality": {
+                            "type": "string",
+                            "description": "Applicant nationality (country code or name). No PII — nationality only."
+                        },
+                        "occupation": {
+                            "type": "string",
+                            "description": "Applicant stated occupation or industry."
+                        },
+                        "id_type": {
+                            "type": "string",
+                            "description": "Type of identity document provided: passport, drivers_license, or state_id."
+                        }
+                    },
+                    "required": ["nationality", "occupation", "id_type"]
+                }
+            },
+            "instructions": "kyc-onboarding/prompts/identity_reviewer.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "screening_analyst",
+            "function": {
+                "description": "Interprets automated KYC screening results (OFAC/SDN check, PEP screening, AML risk score) and explains their compliance significance in plain English. Provides regulatory context for each check result to assist the KYC Analyst and Compliance Officer.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "screening_results": {
+                            "type": "array",
+                            "description": "Array of {check_type, result, details} objects from automated screening."
+                        },
+                        "is_pep": {
+                            "type": "boolean",
+                            "description": "Whether the applicant has been flagged as a Politically Exposed Person."
+                        },
+                        "is_sanctioned": {
+                            "type": "boolean",
+                            "description": "Whether the applicant has an OFAC SDN match."
+                        }
+                    },
+                    "required": ["screening_results", "is_pep", "is_sanctioned"]
+                }
+            },
+            "instructions": "kyc-onboarding/prompts/screening_analyst.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "risk_advisor",
+            "function": {
+                "description": "Synthesises identity assessment and screening analysis into a final risk recommendation for a KYC application. Recommends APPROVE, ESCALATE_EDD, or REJECT with clear rationale and regulatory basis. Output is non-binding — the Compliance Officer makes the final decision.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "identity_assessment": {
+                            "type": "string",
+                            "description": "Output from identity_reviewer agent containing CIP risk assessment."
+                        },
+                        "screening_analysis": {
+                            "type": "string",
+                            "description": "Output from screening_analyst agent containing OFAC/PEP/AML interpretation."
+                        },
+                        "risk_rating": {
+                            "type": "string",
+                            "description": "Overall risk rating from the system: LOW, MEDIUM, HIGH, or UNRATED."
+                        },
+                        "is_pep": {
+                            "type": "boolean",
+                            "description": "Whether the applicant is a Politically Exposed Person."
+                        },
+                        "is_sanctioned": {
+                            "type": "boolean",
+                            "description": "Whether the applicant has an OFAC SDN match."
+                        }
+                    },
+                    "required": ["identity_assessment", "screening_analysis", "risk_rating", "is_pep", "is_sanctioned"]
+                }
+            },
+            "instructions": "kyc-onboarding/prompts/risk_advisor.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+    ]
+}

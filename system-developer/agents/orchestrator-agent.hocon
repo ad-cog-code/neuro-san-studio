@@ -1,0 +1,68 @@
+# =============================================================
+# System Developer — SDLC Orchestrator Agent
+# File: agents/orchestrator-agent.hocon
+# Version: v1.0.0
+# Description: Central coordinator — delegates tasks to all
+#              specialist agents and manages the SDLC pipeline
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "sdlc_orchestrator": {
+
+            "name": "sdlc_orchestrator",
+            "description": "Central orchestrator of the AI-powered SDLC pipeline. Receives a software requirement, coordinates 10 specialist agents through the full development lifecycle, and returns all generated artifacts with stage markers.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/orchestrator-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # Downstream agents this orchestrator can call (in sequence)
+            "tools": [
+                {
+                    "name": "industry_sme",
+                    "description": "Takes a brief software requirement and elaborates it into a comprehensive requirements document. Call this first."
+                },
+                {
+                    "name": "business_analyst",
+                    "description": "Transforms a requirements document into a structured product backlog of Epics and User Stories. Call after industry_sme."
+                },
+                {
+                    "name": "product_owner",
+                    "description": "Takes a product backlog and scopes it into shippable MVP increments. Call after business_analyst."
+                },
+                {
+                    "name": "architect",
+                    "description": "Designs the technical system for the current MVP: tech stack, API contracts, data model, file structure. Call after product_owner."
+                },
+                {
+                    "name": "frontend_developer",
+                    "description": "Generates complete, working frontend code for the current MVP. Call after architect."
+                },
+                {
+                    "name": "backend_developer",
+                    "description": "Generates complete, working backend code for the current MVP. Call after architect."
+                },
+                {
+                    "name": "execution_instructor",
+                    "description": "Produces precise, step-by-step run instructions. Call after both developers."
+                },
+                {
+                    "name": "qa_tester",
+                    "description": "Generates test plan and test cases, validates against acceptance criteria. Call after code generation."
+                },
+                {
+                    "name": "business_validator",
+                    "description": "Reviews the delivered MVP against original requirements. Call after QA testing."
+                },
+                {
+                    "name": "technical_writer",
+                    "description": "Produces README, API docs, user guide, and architecture decisions. Always call last."
+                }
+            ]
+        }
+    }
+}

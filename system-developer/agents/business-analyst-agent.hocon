@@ -1,0 +1,27 @@
+# =============================================================
+# System Developer — Business Analyst Agent
+# File: agents/business-analyst-agent.hocon
+# Version: v1.0.0
+# Description: Transforms a requirements document into a
+#              structured product backlog of Epics and User Stories
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "business_analyst": {
+
+            "name": "business_analyst",
+            "description": "Transforms a requirements document into a structured product backlog of Epics and User Stories with acceptance criteria, story points, priorities, and dependencies.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/business-analyst-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # This is a leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

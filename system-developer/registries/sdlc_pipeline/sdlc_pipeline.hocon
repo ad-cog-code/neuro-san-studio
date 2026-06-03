@@ -1,0 +1,368 @@
+# =============================================================
+# System Developer — AI-Powered SDLC Pipeline
+# File: registries/sdlc_pipeline/sdlc_pipeline.hocon
+# Version: v1.0.0
+# Description: Multi-agent SDLC pipeline with 11 agents:
+#              orchestrator + 10 specialists covering
+#              requirements → backlog → MVP → architecture →
+#              code → run instructions → testing → validation →
+#              documentation.
+# =============================================================
+
+{
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "description": "System Developer is an AI-powered SDLC pipeline. Given a brief software requirement, it orchestrates 10 specialist agents through the full development lifecycle — from requirement elaboration to working code with run instructions and documentation.",
+        "tags": ["sdlc", "development", "ai", "pipeline", "code-generation", "multi-agent"],
+        "sample_queries": [
+            "Build me a task management app with Kanban boards",
+            "Create a recipe sharing app with user ratings",
+            "Build a personal finance tracker with charts and budgets",
+            "Create an inventory management system for a small warehouse",
+            "Build a booking system for a hair salon"
+        ]
+    },
+
+    "tools": [
+
+        # =========================================================
+        # SDLC Pipeline Orchestrator
+        # Entry point. Receives user requirement, delegates to all
+        # specialists in sequence, returns assembled output.
+        # =========================================================
+        {
+            "name": "sdlc_orchestrator",
+            "function": {
+                "description": "Central orchestrator of the AI-powered SDLC pipeline. Receives a software requirement, coordinates 10 specialist agents through the full development lifecycle, and returns all generated artifacts with stage markers."
+            },
+            "instructions": "system-developer/prompts/orchestrator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "industry_sme",
+                "business_analyst",
+                "product_owner",
+                "architect",
+                "frontend_developer",
+                "backend_developer",
+                "peer_reviewer",
+                "qa_tester",
+                "business_validator",
+                "technical_writer"
+            ]
+        },
+
+        # =========================================================
+        # Agent 1 — Industry SME
+        # Elaborates brief input into detailed requirements
+        # =========================================================
+        {
+            "name": "industry_sme",
+            "function": {
+                "description": "Takes a brief software requirement and elaborates it into a comprehensive requirements document with functional requirements, non-functional requirements, constraints, assumptions, and success criteria.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirement": {
+                            "type": "string",
+                            "description": "The user's software requirement to elaborate"
+                        }
+                    },
+                    "required": ["requirement"]
+                }
+            },
+            "instructions": "system-developer/prompts/industry-sme-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 2 — Business Analyst
+        # Creates structured product backlog from requirements
+        # =========================================================
+        {
+            "name": "business_analyst",
+            "function": {
+                "description": "Transforms a requirements document into a structured product backlog of Epics and User Stories with acceptance criteria, story points, priorities, and dependencies.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "The requirements document to break down into a backlog"
+                        }
+                    },
+                    "required": ["requirements_document"]
+                }
+            },
+            "instructions": "system-developer/prompts/business-analyst-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 3 — Product Owner
+        # Prioritizes backlog into shippable MVPs
+        # =========================================================
+        {
+            "name": "product_owner",
+            "function": {
+                "description": "Takes a product backlog and scopes it into shippable MVP increments. Selects stories for MVP 1, defines scope and Definition of Done.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_backlog": {
+                            "type": "string",
+                            "description": "The product backlog JSON to prioritize into MVPs"
+                        }
+                    },
+                    "required": ["product_backlog"]
+                }
+            },
+            "instructions": "system-developer/prompts/product-owner-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 4 — Architect
+        # Designs system for current MVP
+        # =========================================================
+        {
+            "name": "architect",
+            "function": {
+                "description": "Designs the technical system for the current MVP: tech stack, components, API contracts, data model, and file structure.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "The MVP plan with scoped stories"
+                        },
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "The requirements document for non-functional requirements context"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done. Read and honour before starting work."
+                        }
+                    },
+                    "required": ["mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/architect-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 5 — Frontend Developer
+        # Generates complete frontend code
+        # =========================================================
+        {
+            "name": "frontend_developer",
+            "function": {
+                "description": "Generates complete, working frontend code for the current MVP based on the architecture document and user stories.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "The architecture document with tech stack, file structure, API contracts"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "The MVP plan with scoped stories and acceptance criteria"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done. Read and honour before starting work."
+                        }
+                    },
+                    "required": ["architecture_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/frontend-developer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 6 — Backend Developer
+        # Generates complete backend code
+        # =========================================================
+        {
+            "name": "backend_developer",
+            "function": {
+                "description": "Generates complete, working backend code for the current MVP based on the architecture document and user stories.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "The architecture document with tech stack, API contracts, data model"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "The MVP plan with scoped stories and acceptance criteria"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done. Read and honour before starting work."
+                        }
+                    },
+                    "required": ["architecture_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/backend-developer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 7 — Peer Reviewer (Quality Gate Scorer)
+        # Scores each SDLC phase output 0-100, flags gaps for re-run
+        # =========================================================
+        {
+            "name": "peer_reviewer",
+            "function": {
+                "description": "Quality Gate Scorer. Scores each SDLC phase output on 5 dimensions (0-20 each, total 0-100). Identifies specific, actionable gaps. Passes at 90+. Called automatically after each phase — not during normal agent execution.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "phase_name": {
+                            "type": "string",
+                            "description": "The SDLC phase being scored: requirements, design, build, or validate"
+                        },
+                        "phase_output": {
+                            "type": "string",
+                            "description": "The full text output from the phase agents to be scored"
+                        },
+                        "project_context": {
+                            "type": "string",
+                            "description": "Project name, industry, and brief description for context"
+                        }
+                    },
+                    "required": ["phase_name", "phase_output"]
+                }
+            },
+            "instructions": "system-developer/prompts/peer-reviewer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 8 — QA Tester
+        # Generates test plan and validates code
+        # =========================================================
+        {
+            "name": "qa_tester",
+            "function": {
+                "description": "Generates a comprehensive test plan and test cases for the current MVP, validating against acceptance criteria.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "MVP plan with stories and acceptance criteria"
+                        },
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "Architecture document for technical context"
+                        },
+                        "frontend_code": {
+                            "type": "string",
+                            "description": "Generated frontend code"
+                        },
+                        "backend_code": {
+                            "type": "string",
+                            "description": "Generated backend code"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done. Read and honour before starting work."
+                        }
+                    },
+                    "required": ["mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/qa-tester-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 9 — Business Validator
+        # Reviews alignment with requirements
+        # =========================================================
+        {
+            "name": "business_validator",
+            "function": {
+                "description": "Reviews the delivered MVP against original requirements. Confirms alignment or flags gaps. Produces a validation report with coverage analysis.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "Original requirements document"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "MVP plan with scoped stories"
+                        },
+                        "test_results": {
+                            "type": "string",
+                            "description": "QA test results"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done. Read and honour before starting work."
+                        }
+                    },
+                    "required": ["requirements_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/business-validator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+
+        # =========================================================
+        # Agent 10 — Technical Writer
+        # Produces full documentation package
+        # =========================================================
+        {
+            "name": "technical_writer",
+            "function": {
+                "description": "Produces comprehensive documentation: README, API docs, user guide, and architecture decision records.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "Architecture document"
+                        },
+                        "run_instructions": {
+                            "type": "string",
+                            "description": "Run instructions"
+                        },
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "Requirements document"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done. Read and honour before starting work."
+                        }
+                    },
+                    "required": ["architecture_document"]
+                }
+            },
+            "instructions": "system-developer/prompts/technical-writer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+
+    ]
+}

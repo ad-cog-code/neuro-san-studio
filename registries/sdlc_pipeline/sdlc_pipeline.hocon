@@ -1,0 +1,990 @@
+# =============================================================
+# System Developer — AI-Powered SDLC Pipeline
+# File: registries/sdlc_pipeline/sdlc_pipeline.hocon
+# Version: v4.0.0
+# Description: Multi-agent SDLC pipeline with 12 agents + orchestrator.
+#              All agents receive audit_progress (living project log).
+#              Producing agents persist artefacts via the WriteFile tool
+#              and call AppendAudit once at the end of their turn.
+#              Document manifest (folder structure + all files created)
+#              is included in audit_progress so agents always know
+#              what iteration they are on and what documents exist.
+# =============================================================
+
+{
+    include "registries/llm_config.hocon",
+    "llm_config": ${llm_config_sonnet},             # SDLC pipeline: code generation + architecture needs Sonnet
+
+    # Allow long agent loops — full SDLC pipeline can run 50+ tool calls
+    # per phase across 12 agents; default Neuro SAN cap is too low.
+    "max_iterations": 40000,
+
+    # Each specialist agent (industry_sme, architect, etc.) does 3-5 LLM calls
+    # plus WriteFile tool calls and can easily take 3-5 minutes. The default
+    # max_execution_seconds is 120 (2 minutes), which is too short and causes
+    # silent cancellation. Set to 1 hour to cover the longest Build phases.
+    "max_execution_seconds": 3600,
+
+    # HTTP streaming timeout — how long the Neuro SAN HTTP handler keeps the
+    # streaming connection open waiting for the entire network call to complete.
+    # Must match or exceed max_execution_seconds. Without this, the server closes
+    # the stream at the default 120s regardless of AppMagic's client-side timeout.
+    "request_timeout_seconds": 3600,
+
+    "metadata": {
+        "description": "System Developer is an AI-powered SDLC pipeline. Given a brief software requirement, it orchestrates 13 specialist agents through the full development lifecycle. All agents read audit-progress.md (project history + document manifest) and append audit entries on completion.",
+        "tags": ["sdlc", "development", "ai", "pipeline", "code-generation", "multi-agent", "bpmn", "neuro-san"],
+        "sample_queries": [
+            "Build me a task management app with Kanban boards",
+            "Create a recipe sharing app with user ratings",
+            "Build a personal finance tracker with charts and budgets",
+            "Create an inventory management system for a small warehouse",
+            "Build a booking system for a hair salon"
+        ]
+    },
+
+    "tools": [
+
+        # =========================================================
+        # SDLC Pipeline Orchestrator
+        # Entry point — no parameters (front-man).
+        # Receives audit_progress in the query and passes it to
+        # every sub-agent it calls.
+        # =========================================================
+        {
+            "name": "sdlc_orchestrator",
+            "function": {
+                "description": "Central orchestrator of the AI-powered SDLC pipeline. Receives a software requirement plus audit_progress (project history + document manifest), coordinates 13 specialist agents through the full development lifecycle, and returns all generated artifacts with stage markers. All output files target a dedicated project folder under C:\\my-projects\\[project-name]\\."
+            },
+            "instructions": "system-developer/prompts/compiled/orchestrator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "doc_analyst",
+                "adaptive_learner",
+                "industry_sme",
+                "business_analyst",
+                "product_owner",
+                "architect",
+                "frontend_developer",
+                "backend_developer",
+                "workflow_developer",
+                "neuro_ai_developer",
+                "qa_tester",
+                "business_validator",
+                "technical_writer",
+                "app_finisher"
+            ]
+        },
+
+        # =========================================================
+        # Agent 0 — Adaptive Learner
+        # Mines past review feedback to guide current phase.
+        # Writes the richest audit entry (opinion + guidance).
+        # =========================================================
+        {
+            "name": "adaptive_learner",
+            "function": {
+                "description": "Analyzes review comments and feedback from past AppMagic projects to extract patterns, lessons, and actionable guidance for the current phase. Produces a Lessons & Guidance Brief for downstream agents (in-context only — no file written). Calls AppendAudit at the end with a rich entry containing opinions, watch-outs, and guidance summary.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "application_brief": {
+                            "type": "string",
+                            "description": "Current application name, description, industry, and target audience"
+                        },
+                        "current_phase": {
+                            "type": "string",
+                            "description": "The SDLC phase about to execute (requirements, design, build, validate)"
+                        },
+                        "past_review_feedback": {
+                            "type": "string",
+                            "description": "Structured review comments from prior AppMagic projects including project name, industry, phase, version, comment text, and outcome"
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — full project history, iteration number, and all documents created so far. Read this first to understand the project context. Call AppendAudit at the end with your guidance entry."
+                        }
+                    },
+                    "required": ["application_brief", "current_phase"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/adaptive-learner-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 0 — Doc Analyst
+        # Always runs first in requirements phase.
+        # Produces: docs/app-input.md
+        # Compiles project metadata + uploaded document text into a single
+        # context file that all subsequent agents read.
+        # =========================================================
+        {
+            "name": "doc_analyst",
+            "function": {
+                "description": "Reads project-context.json and any uploaded documents from uploads/extracted/, then writes docs/app-input.md — the single authoritative context file for all downstream agents. Always runs first in every requirements phase, even when no documents are uploaded.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "project_folder": {
+                            "type": "string",
+                            "description": "Absolute path to the project root folder. Use list_files and read_file relative to this folder."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history. Read first. Call AppendAudit(agent='doc_analyst', phase='requirements', entry=...) at end."
+                        }
+                    },
+                    "required": ["project_folder"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/doc-analyst-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit",
+                      "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # =========================================================
+        # Agent 1 — Industry SME
+        # Produces: requirements-spec.md
+        # =========================================================
+        {
+            "name": "industry_sme",
+            "function": {
+                "description": "Takes a brief software requirement and elaborates it into a comprehensive requirements-spec.md covering functional requirements, non-functional requirements, constraints, assumptions, risks, success criteria, and Product Vision Statement.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirement": {
+                            "type": "string",
+                            "description": "The user's software requirement to elaborate"
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first to understand project context. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["requirement"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/industry-sme-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit",
+                      "ai_search", "read_pdf", "read_docx"]
+        },
+
+        # =========================================================
+        # Agent 2 — Business Analyst
+        # Produces: product-backlog.md (referenced by PO, QA, Validator)
+        # =========================================================
+        {
+            "name": "business_analyst",
+            "function": {
+                "description": "Transforms a requirements document into a structured product-backlog.md with Epics, User Stories, acceptance criteria, story points, MoSCoW priorities, dependencies, and a traceability matrix. Persist the document by calling WriteFile(path='docs/requirements/product-backlog.md', agent='business_analyst', content=...).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "The requirements document (requirements-spec.md) to break down into a backlog"
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["requirements_document"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/business-analyst-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit",
+                      "read_pdf", "read_docx", "write_xlsx"]
+        },
+
+        # =========================================================
+        # Agent 3 — Product Owner (Product Manager)
+        # Reads: requirements-spec.md + product-backlog.md
+        # Produces: product-vision.md (vision + roadmap) + mvp-plan.md (iteration 1)
+        # =========================================================
+        {
+            "name": "product_owner",
+            "function": {
+                "description": "Product Manager who reads the requirements spec and the full product backlog, then produces TWO markdown files: (1) product-vision.md — full product vision, end-to-end MVP scope with stubs, and upcoming iteration roadmap; (2) mvp-plan.md — detailed iteration 1 scope with prioritized stories, acceptance criteria, stubs defined, and Definition of Done. MVP must cover end-to-end app with stubs. Call WriteFile twice with agent='product_owner' and paths 'docs/requirements/product-vision.md' and 'docs/requirements/mvp-plan.md'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "The requirements-spec.md from industry_sme — includes Product Vision Statement"
+                        },
+                        "product_backlog": {
+                            "type": "string",
+                            "description": "The product-backlog.md from business_analyst — prioritized user stories with acceptance criteria and traceability matrix"
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first to understand what iteration you are on. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["requirements_document", "product_backlog"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/product-owner-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit",
+                      "read_pdf", "read_docx"]
+        },
+
+        # =========================================================
+        # Agent 4 — Architect
+        # Produces: architecture.md + integration.md
+        # =========================================================
+        {
+            "name": "architect",
+            "function": {
+                "description": "Designs the technical system for the current MVP. Produces TWO files: (1) architecture.md — tech stack, components, API contracts, data model, file structure, Section 9 AI Components Decision; (2) integration.md — all integrations required, how each is stubbed in MVP, and what real wiring looks like in future iterations. Call WriteFile twice with agent='architect' and paths 'docs/design/architecture.md' and 'docs/design/integration.md'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 scope with scoped stories and DoD"
+                        },
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "requirements-spec.md — non-functional requirements context"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest. Read and honour before starting work."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/architect-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit",
+                      "read_pdf", "read_docx", "read_pptx", "search_web"]
+        },
+
+        # =========================================================
+        # Agent 5 — Frontend Developer
+        # Produces: HTML/CSS/JS code files
+        # =========================================================
+        {
+            "name": "frontend_developer",
+            "function": {
+                "description": "Generates complete, working frontend code for the current MVP based on architecture.md and mvp-plan.md. Persist every file by calling WriteFile(path=<relative path>, agent='frontend_developer', content=<file body>) — one call per file (templates/, static/css|js/, etc.).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "architecture.md — tech stack, file structure, API contracts"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 stories and acceptance criteria"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["architecture_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/frontend-developer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 6 — Backend Developer
+        # Produces: Python backend code files
+        # =========================================================
+        {
+            "name": "backend_developer",
+            "function": {
+                "description": "Generates complete, working backend code for the current MVP based on architecture.md and mvp-plan.md. Persist every file by calling WriteFile(path=<relative path>, agent='backend_developer', content=<file body>) — one call per file (app.py, routes/, services/, models/, requirements.txt, etc.).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "architecture.md — tech stack, API contracts, data model"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 stories and acceptance criteria"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["architecture_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/backend-developer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 7 — Workflow Developer
+        # Produces: BPMN file + workflow_service.py (or skip)
+        # =========================================================
+        {
+            "name": "workflow_developer",
+            "function": {
+                "description": "Generates BPMN 2.0 XML process definitions and SpiffWorkflow integration code when the architect decided BPMN is REQUIRED. Self-skips immediately if bpmn_required = NOT REQUIRED.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "architecture.md — tech stack, API contracts, file structure"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 scoped user stories"
+                        },
+                        "backend_code": {
+                            "type": "string",
+                            "description": "Generated backend code to analyze for workflow patterns"
+                        },
+                        "bpmn_required": {
+                            "type": "string",
+                            "description": "REQUIRED or NOT REQUIRED. If NOT REQUIRED, output only: 'BPMN NOT REQUIRED for this application (architect decision). No workflow file generated.' Stop immediately."
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["architecture_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/workflow-developer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 9 — Neuro AI Developer
+        # Produces: HOCON + agent prompts + ai_bridge.py (or skip)
+        # =========================================================
+        {
+            "name": "neuro_ai_developer",
+            "function": {
+                "description": "Generates Neuro SAN HOCON configuration and agent prompt files when the architect decided Neuro SAN is REQUIRED. Self-skips immediately if neuro_san_required = NOT REQUIRED. HOCON goes to neuro-san-studio/registries/, Flask files go to project /services/.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "architecture.md — tech stack, API contracts"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 scoped user stories"
+                        },
+                        "backend_code": {
+                            "type": "string",
+                            "description": "Generated backend code"
+                        },
+                        "workflow_analysis": {
+                            "type": "string",
+                            "description": "Workflow developer output — includes BPMN with ai_ tasks if any"
+                        },
+                        "neuro_san_required": {
+                            "type": "string",
+                            "description": "REQUIRED or NOT REQUIRED. If NOT REQUIRED, output only: 'Neuro SAN agent network NOT REQUIRED for this application (architect decision). No HOCON file generated.' Stop immediately."
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["architecture_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/neuro-ai-developer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 10 — QA Tester
+        # Reads: product-backlog.md (to compare against what was built)
+        # Produces: docs/validate/test-report.md (via WriteFile)
+        # =========================================================
+        {
+            "name": "qa_tester",
+            "function": {
+                "description": "Produces test-report.md via static code review. Compares the prioritized product backlog against what was actually implemented. Traces every backlog story through routes, templates, and services. Uses implementation_guide for startup steps. Produces 7 sections (Navigation, Setup, Test Cases, Edge Cases, DoD, Backlog Gaps, Integration Stub Status). Persist via WriteFile(path='docs/validate/test-report.md', agent='qa_tester', content=...).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 stories and acceptance criteria"
+                        },
+                        "product_backlog": {
+                            "type": "string",
+                            "description": "product-backlog.md from business_analyst — full prioritized backlog to compare against what was built. Section 6 of your output lists stories in the backlog with no matching implementation."
+                        },
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "architecture.md — for technical context"
+                        },
+                        "frontend_code": {
+                            "type": "string",
+                            "description": "Generated frontend code — trace routes and templates for navigation guide"
+                        },
+                        "backend_code": {
+                            "type": "string",
+                            "description": "Generated backend code — trace routes and services to validate story implementation"
+                        },
+                        "implementation_guide": {
+                            "type": "string",
+                            "description": "docs/validate/implementation-guide.md from technical_writer. Copy startup steps exactly into Section 1. Use port and base URL from here."
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/qa-tester-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 11 — Business Validator
+        # Reads: requirements-spec, product-backlog, test-report, integration.md
+        # Produces: validation-report.md + executive-summary.md
+        # =========================================================
+        {
+            "name": "business_validator",
+            "function": {
+                "description": "Validates the delivered MVP against requirements, product backlog, and test results. Produces TWO files: (1) validation-report.md — vision alignment, traceability audit, DoD assessment, backlog gaps, integration wiring steps (concrete steps to replace stubs with real services referencing integration.md); (2) executive-summary.md — 1-page executive view: what was built, what works, top 3 gaps, recommended next iteration. Call WriteFile twice with agent='business_validator' and paths 'docs/validate/validation-report.md' and 'docs/validate/executive-summary.md'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "requirements-spec.md — original requirements and Product Vision"
+                        },
+                        "mvp_plan": {
+                            "type": "string",
+                            "description": "mvp-plan.md — iteration 1 scoped stories and DoD"
+                        },
+                        "product_backlog": {
+                            "type": "string",
+                            "description": "product-backlog.md — full prioritized backlog. Use this to identify gaps: stories in the backlog that were not built in this iteration."
+                        },
+                        "test_results": {
+                            "type": "string",
+                            "description": "Full qa_tester test-report.md — all 7 sections including per-story pass/fail, backlog gap analysis, and integration stub status. Use as primary evidence for your validation report."
+                        },
+                        "integration_doc": {
+                            "type": "string",
+                            "description": "integration.md from architect — all integrations required, current stubs, and future wiring. For each stub, your validation-report.md must include concrete steps to wire in the real service in the next iteration."
+                        },
+                        "implementation_guide": {
+                            "type": "string",
+                            "description": "docs/validate/implementation-guide.md — deployment and run instructions. Use for deployment readiness verification."
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["requirements_document", "mvp_plan"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/business-validator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit"]
+        },
+
+        # =========================================================
+        # Agent 12 — Technical Writer
+        # Produces: README.md, implementation-guide.md, api-docs.md,
+        #           architecture-decisions.md
+        # =========================================================
+        {
+            "name": "technical_writer",
+            "function": {
+                "description": "Produces comprehensive documentation: docs/validate/implementation-guide.md, docs/validate/api-docs.md, and docs/validate/architecture-decisions.md. Does NOT produce an App Navigation Guide — that is qa_tester's job. Call WriteFile three times with agent='technical_writer' and the three paths above.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "architecture_document": {
+                            "type": "string",
+                            "description": "architecture.md — tech stack, API contracts, file structure, port number"
+                        },
+                        "backend_code": {
+                            "type": "string",
+                            "description": "Backend developer output — extract run instructions, startup commands, entry point"
+                        },
+                        "requirements_document": {
+                            "type": "string",
+                            "description": "requirements-spec.md — includes Product Vision Statement"
+                        },
+                        "shared_context": {
+                            "type": "string",
+                            "description": "Product Vision + Traceability Matrix + Definition of Done + document manifest."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — project history and document manifest. Read first. Call AppendAudit(agent=<your name>, entry=<your audit entry>) at the end of your turn."
+                        }
+                    },
+                    "required": ["architecture_document"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/technical-writer-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit",
+                      "write_docx", "write_pptx", "write_xlsx", "convert_to_pdf"]
+        },
+
+        # =========================================================
+        # Agent 13 — App Finisher
+        # Runs LAST in validate: detects+fixes stub services, seeds data,
+        # writes scripts/seed_data.py + docs/validate/app-navigation-guide.md
+        # =========================================================
+        {
+            "name": "app_finisher",
+            "function": {
+                "description": "Final validate-phase agent. (1) Scans all service files for stub patterns (self-imports, zero def statements) and rewrites them as real implementations. (2) Writes scripts/seed_data.py — a standalone seed script with realistic, story-driven sample records. (3) Writes docs/validate/app-navigation-guide.md — a demo-ready walkthrough with login credentials, seeded data callouts, and end-to-end scenarios. Call WriteFile for each output file. Call AppendAudit at the end.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "project_folder": {
+                            "type": "string",
+                            "description": "Absolute path to the generated project folder. Used to locate service files for stub detection."
+                        },
+                        "implementation_guide": {
+                            "type": "string",
+                            "description": "docs/validate/implementation-guide.md from technical_writer — startup commands, port, and DB path. Copy verbatim into Quick Start section of the navigation guide."
+                        },
+                        "test_report": {
+                            "type": "string",
+                            "description": "docs/validate/test-report.md from qa_tester — Section 1 navigation map and test cases. Use for screen-by-screen walkthrough and seed data scenarios."
+                        },
+                        "validation_summary": {
+                            "type": "string",
+                            "description": "docs/validate/executive-summary.md from business_validator — what was built and top gaps."
+                        },
+                        "audit_progress": {
+                            "type": "string",
+                            "description": "Current audit-progress.md — full project history, iteration number, and all documents created so far. Read first. Call AppendAudit(agent='app_finisher', phase='validate', entry=...) at the end of your turn."
+                        }
+                    },
+                    "required": ["project_folder"]
+                }
+            },
+            "instructions": "system-developer/prompts/compiled/app-finisher-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": ["read_file", "write_file", "list_files", "append_audit", "run_command",
+                      "write_docx", "write_pptx", "write_xlsx", "convert_to_pdf"]
+        },
+
+        # =========================================================
+        # CodedTools — file I/O for the producing agents
+        # All paths are clamped to project_folder (from sly_data).
+        # Step 10 (neuro_ai_developer) may write under
+        # neuro-san-studio/ by passing target='neuro_san_studio'.
+        # =========================================================
+        {
+            "name": "write_file",
+            "function": {
+                "description": "Write or append content to a file in the project folder. CRITICAL — for any document larger than ~3000 chars you MUST split into chunks: first call with mode='write' (creates/overwrites), then subsequent calls with mode='append' until the document is complete. Single-call writes >6KB risk being cancelled mid-stream by tool-output limits. Each chunk should be 2000-3500 chars. Path is relative to the project folder. Set target='neuro_san_studio' (and prefix path with 'neuro-san-studio/') only for Step 10 writes under the neuro-san-studio repo.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Relative path inside the project folder, e.g. 'docs/requirements/requirements-spec.md'. Same path on every chunk for one document."
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The chunk to write. Keep each chunk under 3500 chars. No placeholders, no '...' abbreviations, no TBDs across the assembled document."
+                        },
+                        "mode": {
+                            "type": "string",
+                            "description": "'write' (default) creates or overwrites the file. 'append' adds to the end. For multi-chunk documents: first call mode='write', every subsequent call for the same path mode='append'."
+                        },
+                        "agent": {
+                            "type": "string",
+                            "description": "Your agent name (e.g. 'industry_sme'). Recorded in the per-project tool log."
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Defaults to 'project'. Set to 'neuro_san_studio' only for Step 10 writes."
+                        }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.sdlc_pipeline.write_file.WriteFile"
+        },
+
+        {
+            "name": "read_file",
+            "function": {
+                "description": "Read a file from the project folder. Pass for_agent='AGENT_NAME' to slice only that agent's section between <<<startforagent:AGENT_NAME>>> and <<<endforagent:AGENT_NAME>>> markers (used in audit-progress.md).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Relative path inside the project folder, e.g. 'docs/audit-progress.md'"
+                        },
+                        "for_agent": {
+                            "type": "string",
+                            "description": "Optional. Slice the file to the section between <<<startforagent:NAME>>> and <<<endforagent:NAME>>>."
+                        },
+                        "agent": {
+                            "type": "string",
+                            "description": "Your agent name (e.g. 'business_analyst'). Recorded in the per-project tool log."
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Defaults to 'project'. Set to 'neuro_san_studio' to read from the neuro-san-studio repo."
+                        }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.sdlc_pipeline.read_file.ReadFile"
+        },
+
+        {
+            "name": "list_files",
+            "function": {
+                "description": "List files under a folder relative to the project. Useful to detect prior versions (v1/, v2/, ...) or enumerate generated artifacts. Returns newline-separated relative paths.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Folder path relative to the project folder. Defaults to '.'"
+                        },
+                        "agent": {
+                            "type": "string",
+                            "description": "Your agent name. Recorded in the per-project tool log."
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Defaults to 'project'. Set to 'neuro_san_studio' to list under the neuro-san-studio repo."
+                        }
+                    }
+                }
+            },
+            "class": "coded_tools.sdlc_pipeline.list_files.ListFiles"
+        },
+
+        {
+            "name": "run_command",
+            "function": {
+                "description": "Run a shell command in the generated project folder and return its output. Used by app_finisher to test-run the app (python app.py), capture startup errors, fix them, and re-run. A Flask app that runs for the full timeout with no Python tracebacks returns APP_STARTUP_OK. A process that crashes immediately returns the full traceback.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "Shell command to run, e.g. 'python app.py' or 'python scripts/seed_data.py'. Runs in the project folder as working directory."
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Seconds to wait before killing the process. Default 15. Use 20 for app.py (Flask startup). Use 60 for seed scripts."
+                        },
+                        "agent": {
+                            "type": "string",
+                            "description": "Your agent name — recorded in the per-project tool log."
+                        }
+                    },
+                    "required": ["command"]
+                }
+            },
+            "class": "coded_tools.sdlc_pipeline.run_command.RunCommand"
+        },
+
+        {
+            "name": "append_audit",
+            "function": {
+                "description": "Append your contribution to docs/audit-progress.md. Call ONCE at the very end of your turn. The block is automatically wrapped in <<<startforagent:AGENT>>> ... <<<endforagent:AGENT>>> markers so downstream agents can ReadFile with for_agent=AGENT to slice your section.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "agent": {
+                            "type": "string",
+                            "description": "Your agent name (e.g. 'industry_sme', 'business_analyst')."
+                        },
+                        "phase": {
+                            "type": "string",
+                            "description": "Phase name: requirements / design / build / validate"
+                        },
+                        "entry": {
+                            "type": "string",
+                            "description": "Markdown body of your audit entry. Include: what you started, what you completed (with relative paths to files written), and notes for downstream agents."
+                        }
+                    },
+                    "required": ["agent", "entry"]
+                }
+            },
+            "class": "coded_tools.sdlc_pipeline.append_audit.AppendAudit"
+        },
+
+        # =========================================================
+        # Common rich-format tools — read uploaded documents,
+        # write final deliverables, web research.
+        # Use write_file / read_file for intermediate .md files.
+        # Use these for rich inputs (PDF/DOCX/PPTX/XLSX uploads)
+        # and polished outputs (DOCX reports, XLSX tables).
+        # =========================================================
+
+        {
+            "name": "read_pdf",
+            "function": {
+                "description": "Extract text from a PDF file. Use when a user has uploaded a PDF (RFP, SOW, requirements, existing spec, reference doc). Returns text with '--- Page N ---' markers. Supports page-range slicing for large documents.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       {"type": "string",  "description": "Path to the PDF. Workspace-relative (e.g. 'inputs/rfp.pdf') or absolute for Flask-uploaded files."},
+                        "start_page": {"type": "integer", "description": "1-based start page (optional)."},
+                        "end_page":   {"type": "integer", "description": "1-based end page, inclusive (optional)."},
+                        "agent":      {"type": "string",  "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_pdf.ReadPdf"
+        },
+
+        {
+            "name": "read_docx",
+            "function": {
+                "description": "Extract text from a Word (.docx) document. Headings formatted as # / ## / ###, tables as pipe-separated rows. Supports block-range slicing for large documents. Use when a user has uploaded a Word document.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       {"type": "string",  "description": "Path to the .docx file. Workspace-relative or absolute for Flask-uploaded files."},
+                        "start_para": {"type": "integer", "description": "1-based block to start from (paragraphs + tables both count as blocks, optional)."},
+                        "end_para":   {"type": "integer", "description": "1-based block to stop at, inclusive (optional)."},
+                        "agent":      {"type": "string",  "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_docx.ReadDocx"
+        },
+
+        {
+            "name": "read_pptx",
+            "function": {
+                "description": "Extract per-slide text and speaker notes from a PowerPoint (.pptx) file. Returns '=== Slide N: Title ===' markers. Use when a user has uploaded a presentation (architecture overview, existing product deck, etc.).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":          {"type": "string",  "description": "Path to the .pptx file. Workspace-relative or absolute for Flask-uploaded files."},
+                        "start_slide":   {"type": "integer", "description": "1-based start slide (optional)."},
+                        "end_slide":     {"type": "integer", "description": "1-based end slide, inclusive (optional)."},
+                        "include_notes": {"type": "boolean", "description": "Include speaker notes (default true)."},
+                        "agent":         {"type": "string",  "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_pptx.ReadPptx"
+        },
+
+        {
+            "name": "read_xlsx",
+            "function": {
+                "description": "Read an Excel (.xlsx) sheet as CSV-formatted text. Pass sheet='list' to see all sheet names first. Use when a user has uploaded a spreadsheet (data model, backlog, pricing, existing requirements matrix).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":      {"type": "string",  "description": "Path to the .xlsx file. Workspace-relative or absolute for Flask-uploaded files."},
+                        "sheet":     {"type": "string",  "description": "Sheet name, 1-based index, or 'list' to see all sheet names. Defaults to first sheet."},
+                        "start_row": {"type": "integer", "description": "1-based row to start from (row 1 = header, default 1)."},
+                        "max_rows":  {"type": "integer", "description": "Row cap per call (default 500)."},
+                        "agent":     {"type": "string",  "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_xlsx.ReadXlsx"
+        },
+
+        {
+            "name": "write_docx",
+            "function": {
+                "description": "Create a Word (.docx) document from markdown-like text. Use for FINAL deliverable documents only (implementation guide, user manual, project summary, design document for client). NOT for intermediate .md files — use write_file for those. Content syntax: # Heading1 / ## Heading2 / ### Heading3 / - bullet / |col|col| table row / --- page break.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    {"type": "string", "description": "Output path relative to project workspace, e.g. 'docs/implementation-guide.docx' or 'docs/user-manual.docx'."},
+                        "content": {"type": "string", "description": "Markdown-like document body. Use # / ## / ### for headings, - or * for bullets, |col|col| for tables, --- for page breaks."},
+                        "title":   {"type": "string", "description": "Document title shown as cover heading (write mode only, optional)."},
+                        "mode":    {"type": "string", "description": "'write' (create fresh from Cognizant template, default) or 'append' (add content to existing document)."},
+                        "agent":   {"type": "string", "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_docx.WriteDocx"
+        },
+
+        {
+            "name": "write_xlsx",
+            "function": {
+                "description": "Write tabular data to an Excel (.xlsx) file. Use for FINAL deliverable spreadsheets (product backlog export, test summary matrix, resource plan, data dictionary). NOT for intermediate data — use write_file for .md tables. Content: CSV text (header row first) or JSON array of arrays/objects.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    {"type": "string", "description": "Output path relative to project workspace, e.g. 'docs/product-backlog.xlsx' or 'docs/test-results.xlsx'."},
+                        "content": {"type": "string", "description": "CSV text (header row first) or JSON array of arrays/objects. Header row auto-formatted bold with navy background."},
+                        "sheet":   {"type": "string", "description": "Sheet name (default 'Sheet1')."},
+                        "mode":    {"type": "string", "description": "'write' (create/overwrite, default), 'append_sheet' (add a new sheet to existing file), or 'append_rows' (add rows to existing sheet — header skipped automatically)."},
+                        "agent":   {"type": "string", "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_xlsx.WriteXlsx"
+        },
+
+        {
+            "name": "ai_search",
+            "function": {
+                "description": "Search the web (DuckDuckGo) and synthesise results into a focused, cited answer using AI. Use for industry research, competitive landscape, technology benchmarks, regulatory context, or any external knowledge that should inform the deliverable. Returns synthesised answer with inline citations.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query":       {"type": "string",  "description": "Search query string."},
+                        "purpose":     {"type": "string",  "description": "Context for AI synthesis — makes the answer more targeted (e.g. 'researching fintech trends for a mobile banking app requirements document')."},
+                        "max_results": {"type": "integer", "description": "Number of search results to synthesise from (default 8, max 15)."},
+                        "timelimit":   {"type": "string",  "description": "Time filter: 'd' (day), 'w' (week), 'm' (month), 'y' (year). Optional."},
+                        "agent":       {"type": "string",  "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["query"]
+                }
+            },
+            "class": "coded_tools.common.ai_search.AiSearch"
+        },
+
+        {
+            "name": "ocr_image",
+            "function": {
+                "description": "Extract text and details from an image file using Claude vision. Use when a user has uploaded a screenshot, scanned document, architecture diagram image, or any image containing relevant text or structure.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":   {"type": "string", "description": "Image path. Workspace-relative or absolute for Flask-uploaded files. Formats: .jpg .jpeg .png .gif .webp"},
+                        "model":  {"type": "string", "description": "'haiku' (fast, clean text), 'sonnet' (better for dense layouts/mixed content), 'opus' (best for handwriting/complex diagrams). Default 'haiku'."},
+                        "prompt": {"type": "string", "description": "Custom extraction instruction (optional). E.g. 'List every component and integration arrow in this architecture diagram'."},
+                        "agent":  {"type": "string", "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.ocr_image.OcrImage"
+        },
+
+        {
+            "name": "write_pptx",
+            "function": {
+                "description": "Create a PowerPoint (.pptx) presentation from slide-marker text. Use for FINAL deliverable slide decks only (project overview deck, architecture presentation, executive summary slides). NOT for intermediate .md files — use write_file for those. Slide syntax: === COVER: Title | Subtitle === for cover, === DIVIDER: Section Title === for section dividers, === Slide Title === for content slides, - or * for bullets, plain text for body paragraphs.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    {"type": "string", "description": "Output path relative to project workspace, e.g. 'docs/project-overview.pptx'."},
+                        "content": {"type": "string", "description": "Slide content using slide-marker syntax. Use === COVER: Title | Subtitle === for cover, === DIVIDER: Section === for dividers, === Slide Title === for content slides, - or * for bullets, plain text for body."},
+                        "mode":    {"type": "string", "description": "'write' (create fresh from Cognizant template, default) or 'append' (add slides to existing file)."},
+                        "agent":   {"type": "string", "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_pptx.WritePptx"
+        },
+
+        {
+            "name": "convert_to_pdf",
+            "function": {
+                "description": "Convert a Word (.docx) file to PDF using Microsoft Word. Use after write_docx to produce a PDF version of a final deliverable document. Requires Microsoft Word installed on the Neuro SAN server (Windows only). Output defaults to same folder as input with .pdf extension.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "input_path":  {"type": "string", "description": "Source .docx file (workspace-relative or absolute)."},
+                        "output_path": {"type": "string", "description": "Destination .pdf path (output_dir-relative). Optional — defaults to same folder and name as input with .pdf extension."},
+                        "agent":       {"type": "string", "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["input_path"]
+                }
+            },
+            "class": "coded_tools.common.convert_to_pdf.ConvertToPdf"
+        },
+
+        {
+            "name": "search_web",
+            "function": {
+                "description": "Search DuckDuckGo and return raw results (title, URL, snippet). Use for quick technology lookups or factual checks where raw search results are sufficient. For complex research requiring AI synthesis and inline citations, use ai_search instead.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query":       {"type": "string",  "description": "Search query string."},
+                        "max_results": {"type": "integer", "description": "Number of results to return (default 5, max 20)."},
+                        "region":      {"type": "string",  "description": "Region code: 'in-en' (India), 'us-en' (US), 'wt-wt' (global, default)."},
+                        "timelimit":   {"type": "string",  "description": "Time filter: 'd' (day), 'w' (week), 'm' (month), 'y' (year). Optional."},
+                        "agent":       {"type": "string",  "description": "Your agent name (audit log)."}
+                    },
+                    "required": ["query"]
+                }
+            },
+            "class": "coded_tools.common.search_web.SearchWeb"
+        }
+
+    ]
+}

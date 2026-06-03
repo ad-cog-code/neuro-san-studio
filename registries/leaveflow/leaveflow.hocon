@@ -1,0 +1,70 @@
+{
+    include "registries/llm_config.hocon",
+
+    "tools": [
+        {
+            "name": "leave_policy_advisor",
+            "function": {
+                "description": "Entry-point orchestrator for all LeaveFlow AI interactions. Routes leave policy questions and leave pattern analysis queries to specialist sub-agents. Handles general policy questions directly and delegates detailed lookups and pattern analysis."
+            },
+            "llm_config": ${llm_config},
+            "instructions": "leaveflow/prompts/leave-policy-advisor-prompt.md",
+            "tools": ["policy_lookup_agent", "reason_analyser_agent"]
+        },
+        {
+            "name": "policy_lookup_agent",
+            "function": {
+                "description": "Retrieves and interprets leave policy rules for a specific leave type or scenario in an IT company. Provides entitlements, carryover rules, approval requirements, and restrictions.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "leave_type": {
+                            "type": "string",
+                            "description": "The type of leave being queried. One of: annual, sick, casual, maternity_paternity."
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "The specific policy question to answer about this leave type."
+                        },
+                        "employee_context": {
+                            "type": "string",
+                            "description": "Optional additional context about the employee such as years of service, department, or current balance."
+                        }
+                    },
+                    "required": ["leave_type", "query"]
+                }
+            },
+            "llm_config": ${llm_config},
+            "instructions": "leaveflow/prompts/policy-lookup-agent-prompt.md",
+            "tools": []
+        },
+        {
+            "name": "reason_analyser_agent",
+            "function": {
+                "description": "Analyses patterns in an employee's leave history to surface actionable insights for managers. Supports pattern detection, frequency analysis, and crunch period checks.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "employee_id": {
+                            "type": "string",
+                            "description": "The identifier of the employee whose leave history is being analysed."
+                        },
+                        "analysis_type": {
+                            "type": "string",
+                            "enum": ["pattern_detection", "frequency_analysis", "crunch_period_check"],
+                            "description": "The type of analysis to perform: pattern_detection finds recurring leave patterns, frequency_analysis examines usage rates, crunch_period_check flags overlaps with busy project periods."
+                        },
+                        "leave_history_summary": {
+                            "type": "string",
+                            "description": "A JSON-serialised summary of the employee's recent leave requests, including leave_type, start_date, end_date, days, and status fields."
+                        }
+                    },
+                    "required": ["employee_id", "analysis_type", "leave_history_summary"]
+                }
+            },
+            "llm_config": ${llm_config},
+            "instructions": "leaveflow/prompts/reason-analyser-agent-prompt.md",
+            "tools": []
+        }
+    ]
+}

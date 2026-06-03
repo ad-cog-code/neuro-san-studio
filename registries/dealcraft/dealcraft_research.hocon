@@ -1,0 +1,269 @@
+# =============================================================
+# DealCraft V2 — Research & Analysis Phase Network
+# File: registries/dealcraft/dealcraft_research.hocon
+# Phase: 2 — Research & Analysis (3 agents)
+#
+# Tool guide:
+#   read_file   — .md and .txt (context index, phase1 outputs, text files)
+#   read_pdf    — uploaded client briefings, annexures in PDF format
+#   read_docx   — uploaded docs in Word format
+#   read_pptx   — uploaded presentations
+#   read_xlsx   — uploaded spreadsheets
+#   ai_search   — live web search with AI synthesis (client research, competitor intel)
+#   write_file  — all .md output files (preferred for inter-agent communication)
+#   list_files  — discover uploaded client input files
+# =============================================================
+
+{
+    include "registries/llm_config.hocon",
+    include "registries/agent_models.hocon",
+
+    "metadata": {
+        "description": "DealCraft V2 Research & Analysis Phase — 3 agents: Client Intelligence, Clarification Gaps, Adaptive Learner. Each writes one output file to iter_N/phase2-research/.",
+        "tags": ["dealcraft", "bidmagic", "research", "client-intelligence", "cognizant"],
+        "sample_queries": [
+            "Please coordinate the agents for this phase. Context index path: repository/..."
+        ]
+    },
+
+    "request_timeout_seconds": 600,
+
+    "tools": [
+
+        # ── Thin Orchestrator ─────────────────────────────────────────────────
+        {
+            "name": "research-orchestrator",
+            "function": {
+                "description": "Coordinates the Research & Analysis phase. Reads _context_index.md, then delegates to 3 research agents. Does NOT write files."
+            },
+            "instructions": "dealcraft/prompts/v2/orchestrator-research-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "client-research-agent",
+                "clarification-gap-agent",
+                "adaptive-learner-agent"
+            ]
+        },
+
+        # ── Agent 1: Client Intelligence ──────────────────────────────────────
+        # Has ai_search for live company/market research + all file readers
+        {
+            "name": "client-research-agent",
+            "function": {
+                "description": "Produces a Client Intelligence Brief: company overview, financial health, strategic priorities, org structure, technology landscape, pain points, recent news, EIPO signals, and Cognizant relationship history. Uses ai_search for live research. Writes to iter_N/phase2-research/client-intelligence.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md. Contains deal identity, client inputs paths, and Section 7 with output file path."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/client-research-v2.md",
+            "llm_config": ${agent_models.client_research},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ai_search"]
+        },
+
+        # ── Agent 2: Clarification Gaps ──────────────────────────────────────
+        # Reads RFP (any format) + phase1 outputs to identify gaps
+        {
+            "name": "clarification-gap-agent",
+            "function": {
+                "description": "Reviews the RFP for ambiguities, missing details, and scope uncertainties. Produces a Clarification Q-list, Assumption Register, and Scope Signal log. Writes to iter_N/phase2-research/clarification-gap.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/clarification-gap-v2.md",
+            "llm_config": ${agent_models.clarification_gap},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx"]
+        },
+
+        # ── Agent 3: Adaptive Learner ────────────────────────────────────────
+        # Reads learning library (md files) and prior outputs
+        {
+            "name": "adaptive-learner-agent",
+            "function": {
+                "description": "Reads the global learning library and past deal lessons to extract win/loss patterns, reusable content recommendations, and approach guidance specific to this deal's industry and context. Writes to iter_N/phase2-research/adaptive-learning.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md. Section 5 contains paths to the global learning library."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/adaptive-learner-v2.md",
+            "llm_config": ${agent_models.adaptive_learner},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx"]
+        },
+
+        # ── Core file tools (common) ──────────────────────────────────────────
+        {
+            "name": "write_file",
+            "function": {
+                "description": "Write or append text to a file in the deal repository. Use for all .md output files. For outputs >15 KB split at section boundaries: first call mode='write', then mode='append'. Path must be relative to workspace root — use the EXACT path from Section 7 of _context_index.md.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Relative path inside the deal repository. Use the EXACT path from Section 7 of _context_index.md." },
+                        "content": { "type": "string", "description": "Text content to write. Keep chunks under 8000 chars; split at ## headings." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates/overwrites) or 'append' (adds to end)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_file.WriteFile"
+        },
+        {
+            "name": "read_file",
+            "function": {
+                "description": "Read a .md or .txt file and return its content. Use for _context_index.md, prior phase .md outputs, and plain-text files. NOT for PDFs, DOCX, PPTX, or XLSX — use the dedicated tools for those.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Relative path inside the deal repository." },
+                        "start_line": { "type": "int", "description": "1-based start line (optional).",
+                        "default": null },
+                        "end_line":   { "type": "int", "description": "1-based end line inclusive (optional).",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_file.ReadFile"
+        },
+        {
+            "name": "list_files",
+            "function": {
+                "description": "List files in the input or output directory. Use 'input' (default) to discover uploaded client files; use 'output' to see files the agents have already written. Returns newline-separated relative paths.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Sub-folder to list, relative to the chosen dir root. ALWAYS specify this — e.g. 'repository/5_acme/inputs/' for client files, 'repository/5_acme/iter_1/phase2-research/' for phase outputs. Do NOT pass 'input' or 'output' here — use the dir parameter for that." },
+                        "dir":     { "type": "string", "description": "'input' (read root — client uploads and prior-phase .md files, default) or 'output' (write root — current-phase generated files). Use path to narrow within the chosen root." },
+                        "pattern": { "type": "string", "description": "Optional glob filter, e.g. '*.pdf' or '**/*.md'." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    }
+                }
+            },
+            "class": "coded_tools.common.list_files.ListFiles"
+        },
+
+        # ── Rich document readers ─────────────────────────────────────────────
+        {
+            "name": "read_pdf",
+            "function": {
+                "description": "Extract text from a PDF file with page markers. Use for uploaded client briefings, annexures, or any .pdf input file.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Path to the PDF — workspace-relative or absolute." },
+                        "start_page": { "type": "int", "description": "1-based start page (optional).",
+                        "default": null },
+                        "end_page":   { "type": "int", "description": "1-based end page inclusive (optional).",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_pdf.ReadPdf"
+        },
+        {
+            "name": "read_docx",
+            "function": {
+                "description": "Extract structured text from a Word (.docx) file. Headings as markdown, tables as pipe rows. Supports block-range slicing for large documents — follow [TRUNCATED] hints.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Path to the .docx file — workspace-relative or absolute." },
+                        "start_para": { "type": "int", "description": "1-based block to start from (paragraphs and tables both count as blocks). Use when resuming after a [TRUNCATED] hint.",
+                        "default": null },
+                        "end_para":   { "type": "int", "description": "1-based block to stop at, inclusive.",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_docx.ReadDocx"
+        },
+        {
+            "name": "read_pptx",
+            "function": {
+                "description": "Extract per-slide text from a PowerPoint (.pptx) file. Use for uploaded client presentations or briefing decks.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":          { "type": "string",  "description": "Path to the .pptx file — workspace-relative or absolute." },
+                        "start_slide":   { "type": "int", "description": "1-based start slide (optional).",
+                        "default": null },
+                        "end_slide":     { "type": "int", "description": "1-based end slide (optional).",
+                        "default": null },
+                        "include_notes": { "type": "boolean", "description": "Include speaker notes (default true)." },
+                        "agent":         { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_pptx.ReadPptx"
+        },
+        {
+            "name": "read_xlsx",
+            "function": {
+                "description": "Read an Excel (.xlsx) file as CSV-formatted text. Use sheet='list' to see all sheet names first. Supports row-range slicing — follow [TRUNCATED] hints.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":      { "type": "string",  "description": "Path to the .xlsx file — workspace-relative or absolute." },
+                        "sheet":     { "type": "string",  "description": "Sheet name, 1-based index, or 'list' to enumerate sheets." },
+                        "start_row": { "type": "int", "description": "1-based row to start from (row 1 = header). Use when resuming after a [TRUNCATED] hint.",
+                        "default": null },
+                        "max_rows":  { "type": "int", "description": "Maximum rows to return per call (default 500).",
+                        "default": null },
+                        "agent":     { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_xlsx.ReadXlsx"
+        },
+
+        # ── Web research ──────────────────────────────────────────────────────
+        {
+            "name": "ai_search",
+            "function": {
+                "description": "DuckDuckGo search with AI synthesis via LiteLLM proxy. Returns a focused, cited answer instead of raw links. Use for client company research (revenue, news, strategy), technology landscape, and market context. Requires LiteLLM proxy running on localhost:4000.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query":       { "type": "string",  "description": "Search query." },
+                        "purpose":     { "type": "string",  "description": "Context for AI synthesis — makes the answer more targeted to your analysis goal." },
+                        "max_results": { "type": "int", "description": "Number of search results to synthesise from (default 8, max 15).",
+                        "default": null },
+                        "timelimit":   { "type": "string",  "description": "Time filter: 'd' (day), 'w' (week), 'm' (month)." },
+                        "agent":       { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["query"]
+                }
+            },
+            "class": "coded_tools.common.ai_search.AiSearch"
+        }
+    ]
+}

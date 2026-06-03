@@ -1,0 +1,252 @@
+# =============================================================
+# DealCraft V2 — Commercial & Risk Phase Network
+# File: registries/dealcraft/dealcraft_commercial.hocon
+# Phase: 4 — Commercial & Risk (6 agents)
+#
+# Tool guide:
+#   read_file   — .md and .txt (context index, phase1-3 outputs)
+#   write_file  — all intermediate .md output files
+#   write_xlsx  — structured deliverables: effort tables, rate cards, risk registers,
+#                 resource calendars (estimator, resource-allocator, pricing, risk agents)
+#   list_files  — discover files in the deal repository
+# =============================================================
+
+{
+    include "registries/llm_config.hocon",
+    include "registries/agent_models.hocon",
+
+    "metadata": {
+        "description": "DealCraft V2 Commercial & Risk Phase — 6 agents: Effort Estimation, Resource Plan, Pricing Brief, Risk Assessment, Staffing & Governance, Value Realisation. Each writes one .md to iter_N/phase4-commercial/. Estimation, pricing, and risk agents also produce .xlsx deliverables.",
+        "tags": ["dealcraft", "bidmagic", "commercial", "pricing", "estimation", "risk", "cognizant"],
+        "sample_queries": [
+            "Please coordinate the agents for this phase. Context index path: repository/..."
+        ]
+    },
+
+    "request_timeout_seconds": 600,
+
+    "tools": [
+
+        # ── Thin Orchestrator ─────────────────────────────────────────────────
+        {
+            "name": "commercial-orchestrator",
+            "function": {
+                "description": "Coordinates the Commercial & Risk phase. Reads _context_index.md, delegates to 6 commercial agents. Does NOT write files."
+            },
+            "instructions": "dealcraft/prompts/v2/orchestrator-commercial-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "estimator-agent",
+                "duration-resource-allocator-agent",
+                "pricing-agent",
+                "risk-assessment-agent",
+                "staffing-governance-agent",
+                "value-augmentation-agent"
+            ]
+        },
+
+        # ── Agent 1: Effort Estimation ────────────────────────────────────────
+        # Writes .md summary + .xlsx WBS table
+        {
+            "name": "estimator-agent",
+            "function": {
+                "description": "Produces a Work Breakdown Structure with story points per phase and work stream. Includes GenAI uplift factor (10-30%), a phased delivery timeline (months), and total effort in person-months. Writes summary to iter_N/phase4-commercial/effort-estimation.md and detailed WBS to effort-estimation.xlsx",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/estimator-v2.md",
+            "llm_config": ${agent_models.estimator},
+            "tools": ["read_file", "write_file", "list_files", "write_xlsx"]
+        },
+
+        # ── Agent 2: Resource Plan ────────────────────────────────────────────
+        # Writes .md narrative + .xlsx resource calendar
+        {
+            "name": "duration-resource-allocator-agent",
+            "function": {
+                "description": "Translates effort estimation into a team structure: roles, headcount, ramp-up schedule, onsite/offshore split (typical 20/80), and a month-by-month resource calendar. Writes narrative to iter_N/phase4-commercial/resource-plan.md and calendar to resource-plan.xlsx",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/resource-allocator-v2.md",
+            "llm_config": ${agent_models.resource_plan},
+            "tools": ["read_file", "write_file", "list_files", "write_xlsx"]
+        },
+
+        # ── Agent 3: Pricing Brief ────────────────────────────────────────────
+        # Writes .md narrative + .xlsx pricing model
+        {
+            "name": "pricing-agent",
+            "function": {
+                "description": "Produces pricing models for T&M and Fixed Price options. Includes floor/target/ceiling pricing, rate card assumptions (blended rates by role and location), volume discounts, and payment milestones. Writes narrative to iter_N/phase4-commercial/pricing-brief.md and rate card/model to pricing-model.xlsx",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/pricing-v2.md",
+            "llm_config": ${agent_models.pricing},
+            "tools": ["read_file", "write_file", "list_files", "write_xlsx"]
+        },
+
+        # ── Agent 4: Risk Assessment ──────────────────────────────────────────
+        # Writes .md narrative + .xlsx risk register
+        {
+            "name": "risk-assessment-agent",
+            "function": {
+                "description": "Produces a Risk Register with 10-15 risks: deal, delivery, commercial, and regulatory. Each risk has likelihood (H/M/L), impact (H/M/L), a risk score, and a mitigation strategy. Writes narrative to iter_N/phase4-commercial/risk-assessment.md and detailed register to risk-register.xlsx",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/risk-assessment-v2.md",
+            "llm_config": ${agent_models.risk_assessment},
+            "tools": ["read_file", "write_file", "list_files", "write_xlsx"]
+        },
+
+        # ── Agent 5: Staffing & Governance ────────────────────────────────────
+        {
+            "name": "staffing-governance-agent",
+            "function": {
+                "description": "Designs the delivery governance model: org chart with named roles, RACI matrix for key activities, governance cadence (steering, delivery, operational meetings), escalation model, and knowledge transfer plan. Writes to iter_N/phase4-commercial/staffing-governance.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/staffing-governance-v2.md",
+            "llm_config": ${agent_models.staffing_governance},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Agent 6: Value Realisation ────────────────────────────────────────
+        {
+            "name": "value-augmentation-agent",
+            "function": {
+                "description": "Builds a financial value case: ROI calculation, payback period, 3-year NPV, cost avoidance vs investment, and a business case narrative. Maps Cognizant accelerators to quantified outcomes. Writes to iter_N/phase4-commercial/value-realisation.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/value-augmentation-v2.md",
+            "llm_config": ${agent_models.value_augmentation},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Core file tools (common) ──────────────────────────────────────────
+        {
+            "name": "write_file",
+            "function": {
+                "description": "Write or append text to a file in the deal repository. Use for all .md output files. For outputs >15 KB split at section boundaries: first call mode='write', then mode='append'. Path must be relative to workspace root — use the EXACT path from Section 7 of _context_index.md.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Relative path inside the deal repository. Use the EXACT path from Section 7 of _context_index.md." },
+                        "content": { "type": "string", "description": "Text content to write. Keep chunks under 8000 chars; split at ## headings." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates/overwrites) or 'append' (adds to end)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_file.WriteFile"
+        },
+        {
+            "name": "read_file",
+            "function": {
+                "description": "Read a .md or .txt file and return its content. Use for _context_index.md and prior phase .md outputs. NOT for PDFs, DOCX, PPTX, or XLSX.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Relative path inside the deal repository." },
+                        "start_line": { "type": "int", "description": "1-based start line (optional).",
+                        "default": null },
+                        "end_line":   { "type": "int", "description": "1-based end line inclusive (optional).",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_file.ReadFile"
+        },
+        {
+            "name": "list_files",
+            "function": {
+                "description": "List files in the input or output directory. Use 'input' (default) to discover uploaded client files; use 'output' to see files the agents have already written. Returns newline-separated relative paths.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Sub-folder to list, relative to the chosen dir root. ALWAYS specify this — e.g. 'repository/5_acme/iter_1/phase4-commercial/' for phase outputs. Do NOT pass 'input' or 'output' here — use the dir parameter for that." },
+                        "dir":     { "type": "string", "description": "'input' (read root — prior-phase .md files, default) or 'output' (write root — current-phase generated files). Use path to narrow within the chosen root." },
+                        "pattern": { "type": "string", "description": "Optional glob filter, e.g. '*.xlsx' or '**/*.md'." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    }
+                }
+            },
+            "class": "coded_tools.common.list_files.ListFiles"
+        },
+
+        # ── Structured output writer ──────────────────────────────────────────
+        {
+            "name": "write_xlsx",
+            "function": {
+                "description": "Write tabular data to an Excel (.xlsx) file. Use for: effort WBS tables (estimator), resource calendars (resource-allocator), rate cards and pricing models (pricing), risk registers (risk-assessment). Content is CSV text (header row first) or JSON array. Use mode='append_sheet' to add multiple sheets to one workbook.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Output path relative to workspace root, e.g. 'repository/5_acme/iter_1/phase4-commercial/pricing-model.xlsx'." },
+                        "content": { "type": "string", "description": "CSV text (header row first) or JSON array of arrays/objects." },
+                        "sheet":   { "type": "string", "description": "Sheet name (default 'Sheet1')." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates/overwrites), 'append_sheet' (adds new sheet to existing file), or 'append_rows' (adds data rows to an existing sheet without rewriting the header)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_xlsx.WriteXlsx"
+        }
+    ]
+}

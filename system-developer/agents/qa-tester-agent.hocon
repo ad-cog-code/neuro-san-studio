@@ -1,0 +1,27 @@
+# =============================================================
+# System Developer — QA Tester Agent
+# File: agents/qa-tester-agent.hocon
+# Version: v1.0.0
+# Description: Generates test plan and test cases, validates
+#              against acceptance criteria
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "qa_tester": {
+
+            "name": "qa_tester",
+            "description": "Generates a comprehensive test plan and test cases for the current MVP, validating against acceptance criteria.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/qa-tester-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # This is a leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

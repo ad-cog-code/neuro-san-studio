@@ -1,0 +1,219 @@
+{
+    include "registries/llm_config.hocon",
+    "llm_config": ${llm_config_sonnet},             # Pega blueprint generation needs precise structured output
+
+    "metadata": {
+        "description": "Pega Configuration Automation Network — 9 specialist agents that convert a natural-language Pega requirement into a best-practice case design, a Pega Blueprint JSON (importable into App Studio), post-import enhancements, and a verification report.",
+        "tags": ["pega", "blueprint", "automation", "enterprise", "community"],
+        "sample_queries": [
+            "Create a ServiceRequest case type with 2 stages and an approval step, a CustomerInfo data type, and a summary report.",
+            "Build a loan origination case type with 3 stages, KYC data types, and SLA rules.",
+            "Design a complaint management application with escalation routing and case hierarchy."
+        ]
+    },
+
+    "tools": [
+        {
+            "name": "pega-orchestrator",
+            "function": {
+                "description": "I am the Pega Automation Orchestrator. I coordinate the full pipeline: researching best practices, analyzing the case lifecycle, designing the case, generating a Pega Blueprint JSON, identifying post-import enhancements, and verifying results. I delegate to 8 specialist agents and synthesize their outputs."
+            },
+            "instructions": "pega-automate/prompts/orchestrator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "community-researcher",
+                "case-lifecycle-analyzer",
+                "case-designer",
+                "blueprint-generator",
+                "enhancement-agent",
+                "task-router",
+                "verification-agent",
+                "audit-reporter"
+            ]
+        },
+
+        {
+            "name": "community-researcher",
+            "function": {
+                "description": "I research Pega Community (community.pega.com) and Pega Documentation (docs.pega.com) for best practices, reference architectures, accelerators, and anti-patterns relevant to the given requirement.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nl_requirement": {
+                            "type": "string",
+                            "description": "Natural-language Pega configuration requirement"
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical if known (e.g. Insurance, Banking, Healthcare)"
+                        }
+                    },
+                    "required": ["nl_requirement"]
+                }
+            },
+            "instructions": "pega-automate/prompts/community-researcher-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "case-lifecycle-analyzer",
+            "function": {
+                "description": "I analyze the case lifecycle for a Pega requirement: stages, processes per stage, assignment routing, data model, SLA, and integration touchpoints.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nl_requirement": {
+                            "type": "string",
+                            "description": "Natural-language Pega configuration requirement"
+                        },
+                        "research_report": {
+                            "type": "string",
+                            "description": "Best practices research output (JSON string)"
+                        }
+                    },
+                    "required": ["nl_requirement"]
+                }
+            },
+            "instructions": "pega-automate/prompts/case-lifecycle-analyzer-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "case-designer",
+            "function": {
+                "description": "I produce a complete CaseDesign JSON ready for Blueprint generation: full stage/process hierarchy, field definitions with Pega types, view layouts, routing rules, decision rules, and correspondence templates.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "case_lifecycle": {
+                            "type": "string",
+                            "description": "CaseLifecycle JSON from case-lifecycle-analyzer"
+                        },
+                        "research_report": {
+                            "type": "string",
+                            "description": "Best practices research output (JSON string)"
+                        },
+                        "pega_env": {
+                            "type": "string",
+                            "description": "Target Pega environment base URL"
+                        }
+                    },
+                    "required": ["case_lifecycle"]
+                }
+            },
+            "instructions": "pega-automate/prompts/case-designer-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "blueprint-generator",
+            "function": {
+                "description": "I generate a Pega Application Blueprint JSON compatible with pega.com/blueprint and importable into Pega App Studio.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "case_design": {
+                            "type": "string",
+                            "description": "CaseDesign JSON from case-designer"
+                        },
+                        "app_name": {
+                            "type": "string",
+                            "description": "Target Pega application name"
+                        }
+                    },
+                    "required": ["case_design"]
+                }
+            },
+            "instructions": "pega-automate/prompts/blueprint-generator-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "enhancement-agent",
+            "function": {
+                "description": "I identify configuration enhancements needed after Blueprint import: decision tables, SLA rules, correspondence templates, reports, access roles, and integration mappings.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "pega_blueprint": {
+                            "type": "string",
+                            "description": "The imported PegaBlueprint JSON"
+                        },
+                        "import_notes": {
+                            "type": "string",
+                            "description": "Notes from the import step"
+                        }
+                    },
+                    "required": ["pega_blueprint"]
+                }
+            },
+            "instructions": "pega-automate/prompts/enhancement-agent-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "task-router",
+            "function": {
+                "description": "I decide whether each Pega configuration task should use the REST API route or the Playwright UI route, based on Pega's API coverage.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "operation": {
+                            "type": "string",
+                            "description": "The Pega operation to route (e.g. create_case_type, add_approval_step)"
+                        }
+                    },
+                    "required": ["operation"]
+                }
+            },
+            "instructions": "pega-automate/prompts/task-router-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "verification-agent",
+            "function": {
+                "description": "I analyze user test results and the imported Blueprint to produce a VerificationReport: which requirements pass, which have gaps, and recommended remediations.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "test_notes": {
+                            "type": "string",
+                            "description": "User-provided test notes from Pega validation"
+                        },
+                        "test_passed": {
+                            "type": "string",
+                            "description": "Overall test result: yes, partial, or no"
+                        },
+                        "pega_blueprint": {
+                            "type": "string",
+                            "description": "The PegaBlueprint JSON that was imported"
+                        }
+                    },
+                    "required": ["test_notes", "pega_blueprint"]
+                }
+            },
+            "instructions": "pega-automate/prompts/verification-agent-prompt.md",
+            "llm_config": ${llm_config}
+        },
+
+        {
+            "name": "audit-reporter",
+            "function": {
+                "description": "I assemble a final audit report covering the full run: research findings, design decisions, blueprint summary, import result, enhancements, test outcome, and compliance notes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "run_id": {
+                            "type": "integer",
+                            "description": "The run ID to report on"
+                        }
+                    },
+                    "required": ["run_id"]
+                }
+            },
+            "instructions": "pega-automate/prompts/audit-reporter-prompt.md",
+            "llm_config": ${llm_config}
+        }
+    ]
+}

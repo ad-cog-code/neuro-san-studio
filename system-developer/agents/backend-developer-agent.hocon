@@ -1,0 +1,27 @@
+# =============================================================
+# System Developer — Backend Developer Agent
+# File: agents/backend-developer-agent.hocon
+# Version: v1.0.0
+# Description: Generates complete, working backend code
+#              for the current MVP
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "backend_developer": {
+
+            "name": "backend_developer",
+            "description": "Generates complete, working backend code for the current MVP based on the architecture document and user stories.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/backend-developer-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # This is a leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

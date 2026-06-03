@@ -1,0 +1,7 @@
+.env
+artifact_store/db/*.db
+artifact_store/sessions/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store

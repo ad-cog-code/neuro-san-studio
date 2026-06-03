@@ -1,0 +1,27 @@
+# =============================================================
+# System Developer — Execution Instructor Agent
+# File: agents/execution-instructor-agent.hocon
+# Version: v1.0.0
+# Description: Produces precise, step-by-step run instructions
+#              that work on first try
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "execution_instructor": {
+
+            "name": "execution_instructor",
+            "description": "Analyzes generated code and architecture to produce precise, step-by-step run instructions. Instructions must be copy-pasteable and work on first try.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/execution-instructor-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # This is a leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

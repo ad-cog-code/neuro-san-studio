@@ -1,0 +1,27 @@
+# =============================================================
+# System Developer — Business Validator Agent
+# File: agents/business-validator-agent.hocon
+# Version: v1.0.0
+# Description: Reviews the delivered MVP against original
+#              requirements and flags gaps
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "business_validator": {
+
+            "name": "business_validator",
+            "description": "Reviews the delivered MVP against original requirements. Confirms alignment or flags gaps. Produces a validation report with coverage analysis.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/business-validator-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # This is a leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

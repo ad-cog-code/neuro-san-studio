@@ -1,0 +1,18 @@
+{
+    # ── Always-on networks (survive hot-reloads) ──────────────────
+    # BidMagic V2 phase networks — one per BPMN phase
+    "dealcraft/dealcraft_qualification.hocon":  true,
+    "dealcraft/dealcraft_research.hocon":       true,
+    "dealcraft/dealcraft_solution.hocon":       true,
+    "dealcraft/dealcraft_commercial.hocon":     true,
+    "dealcraft/dealcraft_proposal.hocon":       true,
+    "sdlc_pipeline/sdlc_pipeline.hocon": true,
+
+    # ── Generated app networks ────────────────────────────────────
+    "health-claims/health-claims.hocon": true,
+    "leaveflow/leaveflow.hocon":      true,
+    "taskboard/taskboard.hocon":      true,
+
+    # ── Other active networks ─────────────────────────────────────
+    "dispute-processing/dispute-processing.hocon": true
+}

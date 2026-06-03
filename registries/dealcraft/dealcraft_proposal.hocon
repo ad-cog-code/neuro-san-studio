@@ -1,0 +1,325 @@
+# =============================================================
+# DealCraft V2 — Response Authoring Phase Network
+# File: registries/dealcraft/dealcraft_proposal.hocon
+# Phase: 5 — Response Authoring (7 agents)
+#
+# Tool guide:
+#   read_file   — .md and .txt (context index, all prior phase outputs)
+#   write_file  — intermediate analysis .md files (red-team, executive-tone,
+#                 deal-scorecard, submission-readiness, data-visualizations)
+#   write_docx  — final Word deliverables (proposal-writer, report-assembler)
+#   write_xlsx  — tabular annexures in Excel (report-assembler)
+#   list_files  — discover files in the deal repository
+# =============================================================
+
+{
+    include "registries/llm_config.hocon",
+    include "registries/agent_models.hocon",
+
+    "metadata": {
+        "description": "DealCraft V2 Response Authoring Phase — 7 agents: Proposed Solution, Data Visualizations, BD Package Report, Red Team Review, Executive Tone Review, Deal Scorecard, Submission Readiness. Each writes output to iter_N/phase5-proposal/. Proposal-writer and report-assembler produce Word documents.",
+        "tags": ["dealcraft", "bidmagic", "proposal", "response", "rfp", "cognizant"],
+        "sample_queries": [
+            "Please coordinate the agents for this phase. Context index path: repository/..."
+        ]
+    },
+
+    "request_timeout_seconds": 600,
+
+    "tools": [
+
+        # ── Thin Orchestrator ─────────────────────────────────────────────────
+        {
+            "name": "proposal-orchestrator",
+            "function": {
+                "description": "Coordinates the Response Authoring phase. Reads _context_index.md, delegates to 7 proposal agents. Does NOT write files."
+            },
+            "instructions": "dealcraft/prompts/v2/orchestrator-proposal-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "proposal-writer-agent",
+                "data-visualization-agent",
+                "report-assembler-agent",
+                "red-team-agent",
+                "executive-tone-agent",
+                "deal-evaluator-agent",
+                "submission-readiness-agent"
+            ]
+        },
+
+        # ── Agent 1: Proposed Solution ────────────────────────────────────────
+        # Writes the main proposal narrative as a Word document
+        {
+            "name": "proposal-writer-agent",
+            "function": {
+                "description": "Authors the proposal narrative: executive summary (C-suite level), proposed solution description with win themes woven in, why Cognizant section with differentiators, and next steps / call to action. Synthesises all Phase 1-4 outputs. Writes .md to iter_N/phase5-proposal/proposed-solution.md, a Word document to proposed-solution.docx, a PDF to proposed-solution.pdf, and a PowerPoint executive summary deck to proposed-solution.pptx.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md. Section 3 has paths to all Phase 1-4 outputs."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/proposal-writer-v2.md",
+            "llm_config": ${agent_models.proposal_writer},
+            "tools": ["read_file", "write_file", "list_files", "write_docx", "write_pptx", "convert_to_pdf"]
+        },
+
+        # ── Agent 2: Data Visualizations ──────────────────────────────────────
+        {
+            "name": "data-visualization-agent",
+            "function": {
+                "description": "Produces Chart.js-ready data structures for: effort distribution bar chart, phase timeline Gantt, risk heat map, pricing comparison table, resource ramp-up line chart. Writes to iter_N/phase5-proposal/data-visualizations.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/data-visualization-v2.md",
+            "llm_config": ${agent_models.data_visualization},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Agent 3: BD Package Report ────────────────────────────────────────
+        {
+            "name": "report-assembler-agent",
+            "function": {
+                "description": "Assembles the final BD Package Report: executive summary table, key metrics dashboard (deal score, effort, pricing, win probability), completeness checklist, BD team action items, and submission readiness status. Writes .md to iter_N/phase5-proposal/bd-package-report.md, a Word document to bd-package-report.docx, a PDF to bd-package-report.pdf, a PowerPoint BD summary deck to bd-package-report.pptx, and a key metrics Excel table to bd-package-metrics.xlsx.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/report-assembler-v2.md",
+            "llm_config": ${agent_models.report_assembler},
+            "tools": ["read_file", "write_file", "list_files", "write_docx", "write_pptx", "write_xlsx", "convert_to_pdf"]
+        },
+
+        # ── Agent 4: Red Team Review ──────────────────────────────────────────
+        {
+            "name": "red-team-agent",
+            "function": {
+                "description": "Adversarially reviews the proposal as a competitor or evaluator would. Identifies the top 5 weaknesses, must-fix issues before submission, and assigns a RAG submission readiness status (Red/Amber/Green) with rationale. Writes to iter_N/phase5-proposal/red-team.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/red-team-v2.md",
+            "llm_config": ${agent_models.red_team},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Agent 5: Executive Tone Review ────────────────────────────────────
+        {
+            "name": "executive-tone-agent",
+            "function": {
+                "description": "Reviews the executive summary for C-suite suitability: removes jargon, strengthens ROI language, ensures win themes are prominent, corrects passive voice and hedge words. Produces revised executive summary and a language polish checklist. Writes to iter_N/phase5-proposal/executive-tone.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/executive-tone-v2.md",
+            "llm_config": ${agent_models.executive_tone},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Agent 6: Deal Scorecard ───────────────────────────────────────────
+        {
+            "name": "deal-evaluator-agent",
+            "function": {
+                "description": "Scores the deal 0-100 across 5 dimensions: Strategic Fit (25%), Win Probability (20%), Financial Attractiveness (20%), Delivery Confidence (20%), Relationship Strength (15%). Produces overall score, sub-scores, and a go/no-go recommendation with rationale. Writes to iter_N/phase5-proposal/deal-scorecard.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/deal-evaluator-v2.md",
+            "llm_config": ${agent_models.deal_evaluator},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Agent 7: Submission Readiness ─────────────────────────────────────
+        {
+            "name": "submission-readiness-agent",
+            "function": {
+                "description": "Final submission gate: runs through a 20-point compliance checklist (from clause-decomposition.md), verifies all mandatory sections are present, assigns Go/Conditional Go/No-Go status, and provides a submission checklist for the BD team. Writes to iter_N/phase5-proposal/submission-readiness.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/submission-readiness-v2.md",
+            "llm_config": ${agent_models.submission_readiness},
+            "tools": ["read_file", "write_file", "list_files"]
+        },
+
+        # ── Core file tools (common) ──────────────────────────────────────────
+        {
+            "name": "write_file",
+            "function": {
+                "description": "Write or append text to a file. Use for .md and .txt intermediate analysis files ONLY — NOT for final client deliverables (use write_docx for Word, write_pptx for PowerPoint, write_xlsx for Excel). For outputs >15 KB split at section boundaries: first call mode='write', then mode='append'. Path must be relative to workspace root — use the EXACT path from Section 7 of _context_index.md.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Relative path inside the deal repository. Use the EXACT path from Section 7 of _context_index.md." },
+                        "content": { "type": "string", "description": "Text content to write. Keep chunks under 8000 chars; split at ## headings." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates/overwrites) or 'append' (adds to end)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_file.WriteFile"
+        },
+        {
+            "name": "read_file",
+            "function": {
+                "description": "Read a .md or .txt file and return its content. Use for _context_index.md and all prior phase .md outputs. NOT for PDFs, DOCX, PPTX, or XLSX.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Relative path inside the deal repository." },
+                        "start_line": { "type": "int", "description": "1-based start line (optional).",
+                        "default": null },
+                        "end_line":   { "type": "int", "description": "1-based end line inclusive (optional).",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_file.ReadFile"
+        },
+        {
+            "name": "list_files",
+            "function": {
+                "description": "List files in the input or output directory. Use 'input' (default) to discover uploaded client files; use 'output' to see files the agents have already written. Returns newline-separated relative paths.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Sub-folder to list, relative to the chosen dir root. ALWAYS specify this — e.g. 'repository/5_acme/iter_1/phase5-proposal/' for phase outputs. Do NOT pass 'input' or 'output' here — use the dir parameter for that." },
+                        "dir":     { "type": "string", "description": "'input' (read root — prior-phase .md files, default) or 'output' (write root — current-phase generated files). Use path to narrow within the chosen root." },
+                        "pattern": { "type": "string", "description": "Optional glob filter, e.g. '*.docx' or '**/*.md'." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    }
+                }
+            },
+            "class": "coded_tools.common.list_files.ListFiles"
+        },
+
+        # ── Deliverable writers ───────────────────────────────────────────────
+        {
+            "name": "write_docx",
+            "function": {
+                "description": "Create or append to a Cognizant-branded Word (.docx) document. Use for FINAL CLIENT-FACING Word deliverables ONLY — not for intermediate .md analysis files (use write_file for those). For documents >8 KB: first call mode='write', then mode='append' for each subsequent section.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Output path relative to workspace root, e.g. 'repository/5_acme/iter_1/phase5-proposal/proposed-solution.docx'." },
+                        "content": { "type": "string", "description": "Markdown-like text: # Heading 1, ## Heading 2, - bullets, |col1|col2| table rows, --- page break, normal paragraphs." },
+                        "title":   { "type": "string", "description": "Document title added as cover heading (write mode only, optional)." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates fresh from Cognizant template) or 'append' (adds content to the end of an existing file)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_docx.WriteDocx"
+        },
+        {
+            "name": "write_xlsx",
+            "function": {
+                "description": "Write tabular data to an Excel (.xlsx) file. Use for the BD package metrics table (bd-package-metrics.xlsx). Content is CSV text (header row first) or JSON array.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Output path relative to workspace root, e.g. 'repository/5_acme/iter_1/phase5-proposal/bd-package-metrics.xlsx'." },
+                        "content": { "type": "string", "description": "CSV text (header row first) or JSON array of arrays/objects." },
+                        "sheet":   { "type": "string", "description": "Sheet name (default 'Sheet1')." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates/overwrites), 'append_sheet' (adds new sheet to existing file), or 'append_rows' (adds data rows to existing sheet without rewriting the header)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_xlsx.WriteXlsx"
+        },
+
+        # ── Presentation and PDF writers ──────────────────────────────────────
+        {
+            "name": "write_pptx",
+            "function": {
+                "description": "Create or append slides to a Cognizant-branded PowerPoint (.pptx) file. Use for FINAL CLIENT-FACING decks ONLY — not for analysis text (use write_file for that). For large decks: mode='write' for first batch, mode='append' for additional slides. Slide syntax: === COVER: Title | Subtitle ===, === DIVIDER: Section ===, === Slide Title ===, - bullets, plain text.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Output path relative to workspace root, e.g. 'repository/5_acme/iter_1/phase5-proposal/proposal-deck.pptx'." },
+                        "content": { "type": "string", "description": "Slide content using marker syntax: === COVER: Title | Subtitle ===, === DIVIDER: Section Title ===, === Slide Title ===, - bullet point, plain paragraph text." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates fresh from Cognizant template) or 'append' (adds slides to existing file)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_pptx.WritePptx"
+        },
+        {
+            "name": "convert_to_pdf",
+            "function": {
+                "description": "Convert a Word (.docx) file to PDF using Microsoft Word. Call immediately after write_docx using the EXACT SAME relative path — e.g. if you wrote 'repository/5_acme/iter_1/phase5-proposal/proposed-solution.docx', pass that same value as input_path. Requires Microsoft Word installed on the Neuro SAN server.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "input_path":  { "type": "string", "description": "Source .docx path — workspace-relative or absolute." },
+                        "output_path": { "type": "string", "description": "Destination .pdf path relative to workspace root. Defaults to same folder as input with .pdf extension." },
+                        "agent":       { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["input_path"]
+                }
+            },
+            "class": "coded_tools.common.convert_to_pdf.ConvertToPdf"
+        }
+    ]
+}

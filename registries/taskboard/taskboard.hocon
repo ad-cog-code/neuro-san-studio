@@ -1,0 +1,76 @@
+{
+    include "registries/llm_config.hocon",
+
+    "tools": [
+        {
+            "name": "taskboard_orchestrator",
+            "function": {
+                "description": "Front-man orchestrator for the TaskBoard AI assistant network. Receives natural-language queries from TaskBoard users and routes them to the correct specialist sub-agent (task_priority_agent, workload_analysis_agent, or overdue_risk_agent).",
+                "instructions": "registries/taskboard/instructions/taskboard_orchestrator.md",
+                "llm_config": ${llm_config},
+                "tools": [
+                    "task_priority_agent",
+                    "workload_analysis_agent",
+                    "overdue_risk_agent"
+                ]
+            }
+        },
+        {
+            "name": "task_priority_agent",
+            "function": {
+                "description": "Analyses a software task and recommends a priority level (low, medium, high, or critical) based on the task title, description, and due date.",
+                "instructions": "registries/taskboard/instructions/task_priority_agent.md",
+                "llm_config": ${llm_config},
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_input": {
+                            "type": "string",
+                            "description": "Task details including title, description, and due date formatted as a plain-text message."
+                        }
+                    },
+                    "required": ["user_input"]
+                },
+                "tools": []
+            }
+        },
+        {
+            "name": "workload_analysis_agent",
+            "function": {
+                "description": "Analyses team workload data to identify overloaded and underloaded members and recommends task rebalancing actions.",
+                "instructions": "registries/taskboard/instructions/workload_analysis_agent.md",
+                "llm_config": ${llm_config},
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_input": {
+                            "type": "string",
+                            "description": "Team workload summary listing each member's name and open task counts (in-progress and in-review) as a plain-text message."
+                        }
+                    },
+                    "required": ["user_input"]
+                },
+                "tools": []
+            }
+        },
+        {
+            "name": "overdue_risk_agent",
+            "function": {
+                "description": "Assesses the risk that a specific task will become overdue based on its current status and due date. Returns a risk level (low, medium, or high) and a recommended action.",
+                "instructions": "registries/taskboard/instructions/overdue_risk_agent.md",
+                "llm_config": ${llm_config},
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_input": {
+                            "type": "string",
+                            "description": "Task details including title, current status (todo/in_progress/review/done), and due date formatted as a plain-text message."
+                        }
+                    },
+                    "required": ["user_input"]
+                },
+                "tools": []
+            }
+        }
+    ]
+}

@@ -1,0 +1,336 @@
+# =============================================================
+# DealCraft V2 — Qualification Phase Network
+# File: registries/dealcraft/dealcraft_qualification.hocon
+# Phase: 1 — Qualification (6 agents)
+#
+# V2 Architecture (histories=1 fix):
+#   Thin orchestrator reads _context_index.md, delegates to 6 sub-agents.
+#   Orchestrator has NO write_file tool — forces delegation.
+#   Sub-agents each write one .md file to workspace/iter_N/phase1-qualification/
+#
+# sly_data (from BidMagic):
+#   project_folder, project_name, project_id, iter_num, phase_name
+#
+# Tool guide:
+#   read_file   — .md and .txt (context index, prior phase outputs, text files)
+#   read_pdf    — uploaded RFP/tender/SOW in PDF format
+#   read_docx   — uploaded RFP/SOW/requirements in Word format
+#   read_pptx   — uploaded client presentations or pre-RFP decks
+#   read_xlsx   — uploaded BOQ, pricing sheets, data tables
+#   ocr_image   — uploaded architecture images, scanned pages, screenshots
+#   write_file  — all intermediate and final .md output files
+#   list_files  — discover uploaded client input files
+# =============================================================
+
+{
+    include "registries/llm_config.hocon",
+    include "registries/agent_models.hocon",
+
+    "metadata": {
+        "description": "DealCraft V2 Qualification Phase — 6 specialist agents: Bid Qualification, RFP Analysis, Service Line Mapping, EI&PO Analysis, Clause Decomposition, Compliance Mapping. Orchestrator reads _context_index.md and delegates. Each agent writes one output file.",
+        "tags": ["dealcraft", "bidmagic", "qualification", "rfp", "cognizant", "presales"],
+        "sample_queries": [
+            "Please coordinate the agents for this phase. Context index path: repository/..."
+        ]
+    },
+
+    "request_timeout_seconds": 600,
+
+    "tools": [
+
+        # ── Dispatcher Orchestrator ───────────────────────────────────────────
+        {
+            "name": "qualification-orchestrator",
+            "function": {
+                "description": "Routes each call to exactly one specialist agent based on the 'Agent: [name]' instruction in the user message. Does NOT read files or write files itself."
+            },
+            "instructions": "dealcraft/prompts/v2/orchestrator-qualification-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "bid-qualification-agent",
+                "rfp-analyzer-agent",
+                "service-line-analyzer-agent",
+                "eipo-analyzer-agent",
+                "clause-decomposition-agent",
+                "compliance-mapping-agent"
+            ]
+        },
+
+        # ── Agent 6 (runs last): Bid Qualification ──────────────────────────
+        {
+            "name": "bid-qualification-agent",
+            "function": {
+                "description": "Produces a Bid Qualification assessment: Bid/No-Bid score (0-10), bottom-line recommendation, strategic fit, risk factors, competitive position, and deal prioritisation. Writes output to iter_N/phase1-qualification/bid-qualification.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md for this deal iteration. Contains deal identity, client inputs, prior phases, and Section 7 with the exact output file path."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/bid-qualification-v2.md",
+            "llm_config": ${agent_models.bid_qualification},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # ── Agent 1 (runs first): RFP Analyzer ──────────────────────────────
+        {
+            "name": "rfp-analyzer-agent",
+            "function": {
+                "description": "Analyzes the RFP document and extracts key requirements, evaluation criteria, scoring weights, mandatory compliance items, submission instructions, and Cognizant fit analysis. Writes output to iter_N/phase1-qualification/rfp-analysis.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md for this deal iteration."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/rfp-analyzer-v2.md",
+            "llm_config": ${agent_models.rfp_analysis},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # ── Agent 3: Service Line Analyzer ───────────────────────────────────
+        {
+            "name": "service-line-analyzer-agent",
+            "function": {
+                "description": "Maps RFP requirements to Cognizant service lines. Identifies primary deal owner, cross-SL dependencies, pursuit team composition, and Key Skills Matrix. Writes output to iter_N/phase1-qualification/service-line.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md for this deal iteration."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/service-line-analyzer-v2.md",
+            "llm_config": ${agent_models.service_line},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # ── Agent 4: EIPO Analyzer ────────────────────────────────────────────
+        {
+            "name": "eipo-analyzer-agent",
+            "function": {
+                "description": "Analyses Enterprise Integration & Platform Orchestration (EIPO) content: integration platform fit (Apigee, MuleSoft, Boomi), process orchestration fit (Pega, Appian, Camunda), AI opportunity map. Writes output to iter_N/phase1-qualification/eipo.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md for this deal iteration."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/eipo-analyzer-v2.md",
+            "llm_config": ${agent_models.eipo},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # ── Agent 5: Clause Decomposition ────────────────────────────────────
+        {
+            "name": "clause-decomposition-agent",
+            "function": {
+                "description": "Decomposes the RFP into a requirement-by-requirement scope matrix: clause reference, requirement summary, Cognizant response approach, evaluation weight, and compliance flag. Writes output to iter_N/phase1-qualification/clause-decomposition.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md for this deal iteration."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/clause-decomposition-v2.md",
+            "llm_config": ${agent_models.clause_decomposition},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # ── Agent 6: Compliance Mapping ───────────────────────────────────────
+        {
+            "name": "compliance-mapping-agent",
+            "function": {
+                "description": "Maps every mandatory compliance requirement from the RFP. Flags regulatory, contractual, and due diligence gaps. Produces compliance matrix, risk register, and due diligence Q-list. Writes output to iter_N/phase1-qualification/compliance-mapping.md",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "context_index_content": {
+                            "type": "string",
+                            "description": "Full content of _context_index.md for this deal iteration."
+                        }
+                    },
+                    "required": ["context_index_content"]
+                }
+            },
+            "instructions": "dealcraft/prompts/v2/compliance-mapping-v2.md",
+            "llm_config": ${agent_models.compliance_mapping},
+            "tools": ["read_file", "write_file", "list_files", "read_pdf", "read_docx", "read_pptx", "read_xlsx", "ocr_image"]
+        },
+
+        # ── Core file tools (common) ──────────────────────────────────────────
+        {
+            "name": "write_file",
+            "function": {
+                "description": "Write or append text to a file in the deal repository. Use for all .md output files. For outputs >15 KB split at section boundaries: first call mode='write', then mode='append' for each subsequent chunk. Path must be relative to workspace root — use the EXACT path from Section 7 of _context_index.md.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Relative path inside the deal repository. Use the EXACT path from Section 7 of _context_index.md." },
+                        "content": { "type": "string", "description": "Text content to write. Keep chunks under 8000 chars; split at ## headings." },
+                        "mode":    { "type": "string", "description": "'write' (default, creates/overwrites) or 'append' (adds to end)." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            "class": "coded_tools.common.write_file.WriteFile"
+        },
+        {
+            "name": "read_file",
+            "function": {
+                "description": "Read a .md or .txt file and return its content. Use for _context_index.md, prior phase .md outputs, and any plain-text files. NOT for PDFs, DOCX, PPTX, or XLSX — use the dedicated tools for those.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Relative path inside the deal repository." },
+                        "start_line": { "type": "int", "description": "1-based start line (optional, for large files).",
+                        "default": null },
+                        "end_line":   { "type": "int", "description": "1-based end line inclusive (optional).",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_file.ReadFile"
+        },
+        {
+            "name": "list_files",
+            "function": {
+                "description": "List files in the input or output directory. Use 'input' (default) to discover uploaded client files; use 'output' to see files the agents have already written. Returns newline-separated relative paths.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":    { "type": "string", "description": "Sub-folder to list, relative to the chosen dir root. ALWAYS specify this — e.g. 'repository/5_acme/inputs/' for client files, 'repository/5_acme/iter_1/phase1-qualification/' for phase outputs. Do NOT pass 'input' or 'output' here — use the dir parameter for that." },
+                        "dir":     { "type": "string", "description": "'input' (read root — client uploads and prior-phase .md files, default) or 'output' (write root — current-phase generated files). Use path to narrow within the chosen root." },
+                        "pattern": { "type": "string", "description": "Optional glob filter, e.g. '*.pdf' or '**/*.md'." },
+                        "agent":   { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    }
+                }
+            },
+            "class": "coded_tools.common.list_files.ListFiles"
+        },
+
+        # ── Rich document readers ─────────────────────────────────────────────
+        {
+            "name": "read_pdf",
+            "function": {
+                "description": "Extract text from a PDF file with page markers. Use for uploaded RFP, tender, SOW, or any .pdf client input file. Returns text with '--- Page N ---' markers. Supports page-range slicing for large documents.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Path to the PDF — workspace-relative or absolute (for Flask upload paths)." },
+                        "start_page": { "type": "int", "description": "1-based start page (optional).",
+                        "default": null },
+                        "end_page":   { "type": "int", "description": "1-based end page inclusive (optional).",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_pdf.ReadPdf"
+        },
+        {
+            "name": "read_docx",
+            "function": {
+                "description": "Extract structured text from a Word (.docx) file. Headings formatted as markdown #/##/###, tables as pipe rows. Supports block-range slicing for large documents — follow [TRUNCATED] hints.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":       { "type": "string",  "description": "Path to the .docx file — workspace-relative or absolute." },
+                        "start_para": { "type": "int", "description": "1-based block to start from (paragraphs and tables both count as blocks). Use when resuming after a [TRUNCATED] hint.",
+                        "default": null },
+                        "end_para":   { "type": "int", "description": "1-based block to stop at, inclusive.",
+                        "default": null },
+                        "agent":      { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_docx.ReadDocx"
+        },
+        {
+            "name": "read_pptx",
+            "function": {
+                "description": "Extract per-slide text and speaker notes from a PowerPoint (.pptx) file. Use for uploaded client presentations, pre-RFP briefing decks, or requirements presented as slides.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":          { "type": "string",  "description": "Path to the .pptx file — workspace-relative or absolute." },
+                        "start_slide":   { "type": "int", "description": "1-based start slide (optional).",
+                        "default": null },
+                        "end_slide":     { "type": "int", "description": "1-based end slide (optional).",
+                        "default": null },
+                        "include_notes": { "type": "boolean", "description": "Include speaker notes (default true)." },
+                        "agent":         { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_pptx.ReadPptx"
+        },
+        {
+            "name": "read_xlsx",
+            "function": {
+                "description": "Read an Excel (.xlsx) file as CSV-formatted text. Use for uploaded BOQ, pricing sheets, data tables. Use sheet='list' to see all sheet names first. Supports row-range slicing — follow [TRUNCATED] hints.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":      { "type": "string",  "description": "Path to the .xlsx file — workspace-relative or absolute." },
+                        "sheet":     { "type": "string",  "description": "Sheet name, 1-based index, or 'list' to enumerate sheets." },
+                        "start_row": { "type": "int", "description": "1-based row to start from (row 1 = header). Use when resuming after a [TRUNCATED] hint.",
+                        "default": null },
+                        "max_rows":  { "type": "int", "description": "Maximum rows to return per call (default 500).",
+                        "default": null },
+                        "agent":     { "type": "string",  "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.read_xlsx.ReadXlsx"
+        },
+        {
+            "name": "ocr_image",
+            "function": {
+                "description": "Extract text and details from an image using Claude vision. Use for uploaded architecture diagrams, scanned RFP pages, screenshots, or any .jpg/.png/.webp client input. Use model='sonnet' for complex layouts.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path":   { "type": "string", "description": "Image path (.jpg .png .gif .webp) — workspace-relative or absolute." },
+                        "model":  { "type": "string", "description": "'haiku' (default, fast), 'sonnet' (complex layouts), 'opus' (handwriting/damaged docs)." },
+                        "prompt": { "type": "string", "description": "Custom extraction instruction (optional)." },
+                        "agent":  { "type": "string", "description": "Your agent name. Recorded in the audit log." }
+                    },
+                    "required": ["path"]
+                }
+            },
+            "class": "coded_tools.common.ocr_image.OcrImage"
+        }
+    ]
+}

@@ -1,0 +1,48 @@
+# =============================================================
+# System Developer — Agent Network Topology
+# File: networks/sdlc-pipeline-network.hocon
+# Version: v1.0.0
+# Description: Defines the multi-agent network for the
+#              AI-Powered SDLC Pipeline
+# =============================================================
+
+{
+    "sdlc_pipeline_network": {
+
+        # ---------------------------------------------------------
+        # Network Metadata
+        # ---------------------------------------------------------
+        "name": "sdlc-pipeline-network",
+        "description": "System Developer AI-Powered SDLC Pipeline — orchestrates 10 specialist agents to transform a brief software requirement into a complete, working software project with documentation.",
+        "version": "1.0.0",
+
+        # ---------------------------------------------------------
+        # Agent Definitions
+        # ---------------------------------------------------------
+        "agents": [
+
+            # Entry point — coordinates all specialist agents
+            ${?agent_definitions.sdlc_orchestrator},
+
+            # Requirements & Planning
+            ${?agent_definitions.industry_sme},
+            ${?agent_definitions.business_analyst},
+            ${?agent_definitions.product_owner},
+
+            # Design
+            ${?agent_definitions.architect},
+
+            # Code Generation
+            ${?agent_definitions.frontend_developer},
+            ${?agent_definitions.backend_developer},
+
+            # Run Instructions
+            ${?agent_definitions.execution_instructor},
+
+            # Validation & Documentation
+            ${?agent_definitions.qa_tester},
+            ${?agent_definitions.business_validator},
+            ${?agent_definitions.technical_writer}
+        ]
+    }
+}

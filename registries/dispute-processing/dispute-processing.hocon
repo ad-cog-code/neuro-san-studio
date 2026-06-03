@@ -1,0 +1,205 @@
+{
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "name": "dispute-processing",
+        "description": "AI agent network for US Visa card dispute processing. Provides reason code suggestion, evidence completeness analysis, and chargeback filing recommendations.",
+        "version": "1.0.0",
+        "project": "Dispute Processing System",
+        "industry": "Financial Services — Card Issuer Banking (US)"
+    },
+
+    "tools": [
+        {
+            "name": "dispute_orchestrator",
+            "function": {
+                "description": "Front-man entry point for all dispute AI analysis. Routes requests by action field: 'intake' to reason_code_agent, 'evidence_analysis' to evidence_analysis_agent, 'chargeback_rec' to chargeback_rec_agent. Always delegates — never produces analysis directly."
+            },
+            "instructions": "dispute-processing/prompts/orchestrator-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "reason_code_agent",
+                "evidence_analysis_agent",
+                "chargeback_rec_agent"
+            ]
+        },
+        {
+            "name": "reason_code_agent",
+            "function": {
+                "description": "Analyzes a new cardholder dispute and recommends the most appropriate Visa chargeback reason code. Returns recommended_code, confidence, rationale, alternative_code, duplicate_risk, sla_warning, sla_days.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "description": "Must be 'intake' for this agent."
+                        },
+                        "dispute_type": {
+                            "type": "string",
+                            "description": "Cardholder's stated dispute category (e.g. 'Fraud / Unauthorized', 'Merchandise Not Received', 'Cancelled Recurring')."
+                        },
+                        "transaction_amount": {
+                            "type": "number",
+                            "description": "Disputed transaction amount in USD."
+                        },
+                        "merchant_name": {
+                            "type": "string",
+                            "description": "Name of the merchant involved in the disputed transaction."
+                        },
+                        "transaction_date": {
+                            "type": "string",
+                            "description": "ISO 8601 date of the disputed transaction (YYYY-MM-DD)."
+                        },
+                        "card_type": {
+                            "type": "string",
+                            "description": "Card type: 'credit' or 'debit'."
+                        },
+                        "cardholder_description": {
+                            "type": "string",
+                            "description": "Free-text narrative from the cardholder describing the dispute."
+                        },
+                        "intake_date": {
+                            "type": "string",
+                            "description": "ISO 8601 date when the cardholder reported the dispute (YYYY-MM-DD)."
+                        },
+                        "card_last_four": {
+                            "type": "string",
+                            "description": "Last 4 digits of the card number (display only — never the full PAN)."
+                        },
+                        "prior_chargebacks_count": {
+                            "type": "integer",
+                            "description": "Number of prior chargebacks on this card account."
+                        }
+                    },
+                    "required": [
+                        "action",
+                        "dispute_type",
+                        "transaction_amount",
+                        "merchant_name",
+                        "transaction_date",
+                        "card_type",
+                        "cardholder_description",
+                        "intake_date"
+                    ]
+                }
+            },
+            "instructions": "dispute-processing/prompts/reason-code-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "evidence_analysis_agent",
+            "function": {
+                "description": "Evaluates the completeness of uploaded evidence for a dispute's Visa reason code. Returns completeness_score (0-100), assessment (Complete/Partial/Insufficient), missing_items, recommendations, and evidence_for_code guidance.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "description": "Must be 'evidence_analysis' for this agent."
+                        },
+                        "reason_code": {
+                            "type": "string",
+                            "description": "Visa chargeback reason code (e.g. '10.4', '13.1', '12.6')."
+                        },
+                        "evidence_types_uploaded": {
+                            "type": "array",
+                            "description": "List of evidence document type strings already uploaded. Valid values: cardholder_statement, transaction_receipt, merchant_response, bank_records, correspondence_logs, photos_screenshots, police_report, visa_confirmation.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "transaction_amount": {
+                            "type": "number",
+                            "description": "Disputed transaction amount in USD. Used to apply the police report threshold for fraud cases."
+                        },
+                        "dispute_type": {
+                            "type": "string",
+                            "description": "Cardholder's stated dispute category."
+                        },
+                        "card_type": {
+                            "type": "string",
+                            "description": "Card type: 'credit' or 'debit'."
+                        },
+                        "dispute_age_days": {
+                            "type": "integer",
+                            "description": "Number of calendar days between the transaction date and today. Used to assess SLA status."
+                        }
+                    },
+                    "required": [
+                        "action",
+                        "reason_code",
+                        "evidence_types_uploaded",
+                        "transaction_amount"
+                    ]
+                }
+            },
+            "instructions": "dispute-processing/prompts/evidence-analysis-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "chargeback_rec_agent",
+            "function": {
+                "description": "Evaluates case strength and recommends whether to file a chargeback (Proceed), negotiate partial settlement, or decline (Do Not Proceed). Returns recommendation, settlement_suggestion_usd, risk_score, rationale, compelling_evidence_flag, sla_urgency.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "description": "Must be 'chargeback_rec' for this agent."
+                        },
+                        "reason_code": {
+                            "type": "string",
+                            "description": "Visa chargeback reason code (e.g. '10.4', '13.1', '12.6')."
+                        },
+                        "evidence_completeness_score": {
+                            "type": "integer",
+                            "description": "Evidence completeness score from 0 to 100, as returned by evidence_analysis_agent."
+                        },
+                        "transaction_amount": {
+                            "type": "number",
+                            "description": "Disputed transaction amount in USD."
+                        },
+                        "dispute_age_days": {
+                            "type": "integer",
+                            "description": "Number of calendar days between the transaction date and today."
+                        },
+                        "prior_chargebacks_count": {
+                            "type": "integer",
+                            "description": "Number of prior chargebacks on this card account."
+                        },
+                        "sla_days_remaining": {
+                            "type": "integer",
+                            "description": "Number of days remaining until the Visa chargeback SLA deadline. Negative means expired."
+                        },
+                        "card_type": {
+                            "type": "string",
+                            "description": "Card type: 'credit' or 'debit'."
+                        },
+                        "dispute_type": {
+                            "type": "string",
+                            "description": "Cardholder's stated dispute category."
+                        },
+                        "merchant_response": {
+                            "type": "string",
+                            "description": "Merchant's response if already received: 'accepted', 'disputed', 'no_response', or null."
+                        }
+                    },
+                    "required": [
+                        "action",
+                        "reason_code",
+                        "evidence_completeness_score",
+                        "transaction_amount",
+                        "dispute_age_days",
+                        "prior_chargebacks_count",
+                        "sla_days_remaining"
+                    ]
+                }
+            },
+            "instructions": "dispute-processing/prompts/chargeback-rec-agent-prompt.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+    ]
+}

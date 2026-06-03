@@ -1,0 +1,27 @@
+# =============================================================
+# System Developer — Architect Agent
+# File: agents/architect-agent.hocon
+# Version: v1.0.0
+# Description: Designs the technical system for the current MVP:
+#              tech stack, components, API contracts, data model
+# =============================================================
+
+{
+    "agent_definitions": {
+
+        "architect": {
+
+            "name": "architect",
+            "description": "Designs the technical system for the current MVP: tech stack, components, API contracts, data model, and file structure.",
+
+            # Path to the system prompt for this agent
+            "instructions": "system-developer/prompts/architect-prompt.md",
+
+            # LLM configuration — inherits from global llm_config.hocon
+            "llm_config": ${llm_config},
+
+            # This is a leaf agent — no downstream tools
+            "tools": []
+        }
+    }
+}

@@ -1,0 +1,138 @@
+{
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "description": "Council Contact Center — 4-agent network for constituent case intake, sentiment analysis, resolution recommendation, and SLA risk scoring. All outputs advisory only. No PII in any agent input or output.",
+        "tags": ["council-contact", "government", "case-management", "sentiment", "sla", "advisory"]
+    },
+
+    "tools": [
+        {
+            "name": "council_contact_orchestrator",
+            "function": {
+                "description": "Council Contact Center AI orchestrator. Routes requests to the appropriate specialist agent based on the request_type field. Supported types: intake_categorisation, sentiment_analysis, resolution_recommendation, sla_risk_scoring."
+            },
+            "instructions": "council-contact/prompts/orchestrator.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "intake_categoriser",
+                "sentiment_analyser",
+                "resolution_recommender",
+                "sla_risk_scorer"
+            ]
+        },
+        {
+            "name": "intake_categoriser",
+            "function": {
+                "description": "Analyzes a constituent's contact submission and suggests the most likely department and category from the live category list. Returns top-2 suggestions with confidence scores for agent review. Advisory only — agent confirms or overrides.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string",
+                            "description": "The constituent's free-text description of their issue or request."
+                        },
+                        "subject": {
+                            "type": "string",
+                            "description": "The subject line or title of the contact submission."
+                        },
+                        "available_categories": {
+                            "type": "array",
+                            "description": "Live list of category objects from the database, each with id, name, department_name, and department_id.",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "required": ["description", "subject", "available_categories"]
+                }
+            },
+            "instructions": "council-contact/prompts/intake_categoriser.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "sentiment_analyser",
+            "function": {
+                "description": "Classifies the emotional sentiment of a constituent's contact description. Returns one of 5 classes (positive, neutral, negative, angry, threatening) with a 0.0-1.0 confidence score. The 'threatening' class is safety-critical and triggers automatic supervisor escalation. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string",
+                            "description": "The constituent's free-text description to analyse for sentiment."
+                        }
+                    },
+                    "required": ["description"]
+                }
+            },
+            "instructions": "council-contact/prompts/sentiment_analyser.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "resolution_recommender",
+            "function": {
+                "description": "Retrieves resolution recommendations for an open case by analyzing the case category, description, and similar resolved cases. Returns 3-5 ordered resolution steps with rationale and prior-case CRN references. Advisory only — officer judgment always applies.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque case reference number — no PII."
+                        },
+                        "category_name": {
+                            "type": "string",
+                            "description": "The name of the case category (e.g., Pothole Report)."
+                        },
+                        "department_name": {
+                            "type": "string",
+                            "description": "The name of the responsible department."
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "The constituent's description of the issue."
+                        },
+                        "priority": {
+                            "type": "string",
+                            "description": "Case priority: low, medium, high, or critical."
+                        },
+                        "similar_cases": {
+                            "type": "array",
+                            "description": "Array of similar resolved case objects with crn, resolution_summary, resolution_code, days_to_resolve, and note_count.",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "required": ["crn", "category_name", "description"]
+                }
+            },
+            "instructions": "council-contact/prompts/resolution_recommender.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "sla_risk_scorer",
+            "function": {
+                "description": "Scores open cases by likelihood of SLA breach using a 6-factor risk model: SLA % elapsed, priority weight, status risk, officer activity, complexity signals, and category complexity. Returns risk scores 0-100 with risk factors and recommended actions per case. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cases": {
+                            "type": "array",
+                            "description": "Array of case objects with crn, priority, status, sla_pct_elapsed, sla_due_at, days_open, note_count, info_requests, escalation_count, category_name, and department_name.",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "required": ["cases"]
+                }
+            },
+            "instructions": "council-contact/prompts/sla_risk_scorer.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+    ]
+}

@@ -1,0 +1,369 @@
+{
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "description": "Auto Claims Management System agent network. Routes incoming requests to specialist agents for FNOL triage, coverage verification, settlement calculation, liability assessment, total loss evaluation, fraud detection, and subrogation evaluation.",
+        "tags": ["auto-claims", "insurance", "adjuster", "fnol", "settlement"]
+    },
+
+    "tools": [
+        {
+            "name": "claims_orchestrator",
+            "function": {
+                "description": "Auto Claims Management System orchestrator. Routes incoming requests to the appropriate specialist agent based on the request_type field. Returns the specialist agent response without modification."
+            },
+            "instructions": "auto-claims/prompts/claims-orchestrator.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "fnol_triage_agent",
+                "coverage_agent",
+                "settlement_calculator_agent",
+                "liability_agent",
+                "total_loss_agent",
+                "fraud_detection_agent",
+                "subrogation_agent"
+            ]
+        },
+        {
+            "name": "fnol_triage_agent",
+            "function": {
+                "description": "Analyzes a new First Notice of Loss (FNOL) to recommend claim category, complexity, severity, and adjuster tier. Provides fraud pre-screening notes and state-specific coverage guidance. Mandatory agent for US-1001.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: collision, comprehensive, liability, pip, um, uim, medpay, rental, or roadside."
+                        },
+                        "incident_description": {
+                            "type": "string",
+                            "description": "Free text narrative of the accident."
+                        },
+                        "incident_date": {
+                            "type": "string",
+                            "description": "ISO date of the incident (YYYY-MM-DD)."
+                        },
+                        "vehicle_year": {
+                            "type": "integer",
+                            "description": "Model year of the claimant's vehicle."
+                        },
+                        "vehicle_make": {
+                            "type": "string",
+                            "description": "Make of the claimant's vehicle."
+                        },
+                        "vehicle_model": {
+                            "type": "string",
+                            "description": "Model of the claimant's vehicle."
+                        },
+                        "policy_number": {
+                            "type": "string",
+                            "description": "Policy number — internal reference only, not included in output."
+                        },
+                        "fraud_score": {
+                            "type": "integer",
+                            "description": "Pre-calculated fraud score 0–100 from the system's 8-indicator engine."
+                        },
+                        "state_code": {
+                            "type": "string",
+                            "description": "Two-letter US state abbreviation (e.g. TX, FL, CA)."
+                        }
+                    },
+                    "required": ["claim_type", "incident_description", "incident_date", "vehicle_year", "vehicle_make", "vehicle_model", "fraud_score", "state_code"]
+                }
+            },
+            "instructions": "auto-claims/prompts/fnol-triage-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "coverage_agent",
+            "function": {
+                "description": "Verifies insurance coverage for a claim. Confirms applicable coverages, limits, deductible, exclusions, and no-fault/PIP rules for the claimant's state. Recommends denial if policy is inactive or claim type is not covered. Mandatory agent for US-1003.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "policy_number": {
+                            "type": "string",
+                            "description": "Policy number for reference."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim (e.g. collision, pip, liability)."
+                        },
+                        "incident_date": {
+                            "type": "string",
+                            "description": "ISO date of the incident — must fall within policy effective/expiry dates."
+                        },
+                        "vehicle_vin": {
+                            "type": "string",
+                            "description": "VIN of the vehicle involved."
+                        },
+                        "claimant_state": {
+                            "type": "string",
+                            "description": "Two-letter US state code for the claimant."
+                        },
+                        "coverage_types": {
+                            "type": "array",
+                            "description": "List of coverage types on the policy."
+                        },
+                        "deductible": {
+                            "type": "number",
+                            "description": "Policy deductible amount."
+                        },
+                        "limits": {
+                            "type": "object",
+                            "description": "Dict of coverage_type to limit_amount."
+                        },
+                        "exclusions": {
+                            "type": "array",
+                            "description": "List of exclusion strings from the policy."
+                        },
+                        "policy_status": {
+                            "type": "string",
+                            "description": "Policy status: ACTIVE, EXPIRED, CANCELLED, or LAPSED."
+                        },
+                        "pip_limit": {
+                            "type": "number",
+                            "description": "PIP limit amount, or null if not applicable."
+                        }
+                    },
+                    "required": ["policy_number", "claim_type", "incident_date", "claimant_state", "coverage_types", "deductible", "policy_status"]
+                }
+            },
+            "instructions": "auto-claims/prompts/coverage-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "settlement_calculator_agent",
+            "function": {
+                "description": "Calculates the recommended net settlement amount for an auto claim. Applies state-specific TLT rules, deductibles, liability percentage, authority levels, lienholder payoff, and 1099 threshold. Mandatory agent for US-1007.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "claim_id": {
+                            "type": "integer",
+                            "description": "Unique identifier for the claim."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim."
+                        },
+                        "repair_estimate": {
+                            "type": "number",
+                            "description": "Repair cost estimate in USD."
+                        },
+                        "acv": {
+                            "type": "number",
+                            "description": "Actual cash value of the vehicle from valuation stub."
+                        },
+                        "deductible": {
+                            "type": "number",
+                            "description": "Policy deductible amount in USD."
+                        },
+                        "liability_percent": {
+                            "type": "integer",
+                            "description": "Percentage of liability assigned to the insurer's side (0–100)."
+                        },
+                        "state_code": {
+                            "type": "string",
+                            "description": "Two-letter US state code."
+                        },
+                        "tlt_threshold": {
+                            "type": "integer",
+                            "description": "Total loss threshold percentage from admin_configs."
+                        },
+                        "medical_bills": {
+                            "type": "number",
+                            "description": "Medical bills amount in USD (0 if not applicable)."
+                        },
+                        "lost_wages": {
+                            "type": "number",
+                            "description": "Lost wages amount in USD (0 if not applicable)."
+                        },
+                        "pain_suffering_multiplier": {
+                            "type": "number",
+                            "description": "Multiplier for pain and suffering (0 if N/A; typically 1.5–3.0 for BI claims)."
+                        },
+                        "lienholder_payoff": {
+                            "type": "number",
+                            "description": "Lienholder payoff amount in USD (0 if no lien)."
+                        },
+                        "deferred_property_damage": {
+                            "type": "number",
+                            "description": "Deferred property damage amount in USD (0 if N/A)."
+                        }
+                    },
+                    "required": ["claim_id", "repair_estimate", "acv", "deductible", "liability_percent", "state_code", "tlt_threshold"]
+                }
+            },
+            "instructions": "auto-claims/prompts/settlement-calculator-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "liability_agent",
+            "function": {
+                "description": "Assesses claimant vs third-party liability percentage based on incident facts, police report, and state comparative/contributory negligence rules. Optional agent for US-1004.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "incident_description": {
+                            "type": "string",
+                            "description": "Narrative of the accident."
+                        },
+                        "police_report_summary": {
+                            "type": "string",
+                            "description": "Text from the police report, or null if unavailable."
+                        },
+                        "state_code": {
+                            "type": "string",
+                            "description": "Two-letter US state code."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: liability, um, uim, collision, or other."
+                        },
+                        "claimant_statement": {
+                            "type": "string",
+                            "description": "Adjuster notes from claimant interview."
+                        },
+                        "third_party_statement": {
+                            "type": "string",
+                            "description": "Third-party statement, or null if unavailable."
+                        }
+                    },
+                    "required": ["incident_description", "state_code", "claim_type"]
+                }
+            },
+            "instructions": "auto-claims/prompts/liability-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "total_loss_agent",
+            "function": {
+                "description": "Recommends whether a vehicle should be declared a total loss. Applies the state TLT threshold, estimates salvage value, calculates net total loss settlement, and flags DMV notification requirement. Optional agent for US-1005.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "repair_estimate": {
+                            "type": "number",
+                            "description": "Repair cost estimate in USD."
+                        },
+                        "acv": {
+                            "type": "number",
+                            "description": "Actual cash value of the vehicle."
+                        },
+                        "state_code": {
+                            "type": "string",
+                            "description": "Two-letter US state code."
+                        },
+                        "tlt_threshold": {
+                            "type": "integer",
+                            "description": "Total loss threshold percentage from admin_configs."
+                        },
+                        "vehicle_year": {
+                            "type": "integer",
+                            "description": "Model year of the vehicle."
+                        },
+                        "vehicle_make": {
+                            "type": "string",
+                            "description": "Make of the vehicle."
+                        },
+                        "vehicle_model": {
+                            "type": "string",
+                            "description": "Model of the vehicle."
+                        },
+                        "mileage": {
+                            "type": "integer",
+                            "description": "Vehicle mileage, or 0 if unknown."
+                        }
+                    },
+                    "required": ["repair_estimate", "acv", "state_code", "tlt_threshold", "vehicle_year", "vehicle_make", "vehicle_model"]
+                }
+            },
+            "instructions": "auto-claims/prompts/total-loss-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "fraud_detection_agent",
+            "function": {
+                "description": "Enhanced fraud analysis using NLP on claim narrative text. Supplements the system's deterministic 8-indicator fraud score with pattern recognition, linguistic analysis, and contextual risk assessment. Optional agent for US-1013.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "incident_description": {
+                            "type": "string",
+                            "description": "The claim narrative text — primary analysis target."
+                        },
+                        "adjuster_notes": {
+                            "type": "string",
+                            "description": "Investigation notes from the adjuster."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim."
+                        },
+                        "fraud_score": {
+                            "type": "integer",
+                            "description": "Fraud score 0–100 already calculated by the system's 8-indicator engine."
+                        },
+                        "prior_claims_count": {
+                            "type": "integer",
+                            "description": "Number of prior claims from ISO ClaimSearch."
+                        },
+                        "days_since_policy_inception": {
+                            "type": "integer",
+                            "description": "Number of days between policy start date and the incident."
+                        }
+                    },
+                    "required": ["incident_description", "fraud_score", "prior_claims_count", "days_since_policy_inception"]
+                }
+            },
+            "instructions": "auto-claims/prompts/fraud-detection-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "subrogation_agent",
+            "function": {
+                "description": "Evaluates subrogation potential for auto claims. Determines if the insurer can recover settled amounts from an at-fault third party. Considers state-specific rules and statute of limitations. Optional agent for Sprint 2.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: collision, liability, um, uim, or pip."
+                        },
+                        "claimant_liability_pct": {
+                            "type": "integer",
+                            "description": "Percentage of liability assigned to claimant (0 = claimant not at fault)."
+                        },
+                        "third_party_identified": {
+                            "type": "boolean",
+                            "description": "Whether the at-fault third party has been identified."
+                        },
+                        "third_party_insured": {
+                            "type": "boolean",
+                            "description": "Whether the at-fault third party carries insurance."
+                        },
+                        "settlement_amount": {
+                            "type": "number",
+                            "description": "Total settlement amount paid to the claimant in USD."
+                        },
+                        "state_code": {
+                            "type": "string",
+                            "description": "Two-letter US state code."
+                        }
+                    },
+                    "required": ["claim_type", "claimant_liability_pct", "third_party_identified", "third_party_insured", "settlement_amount", "state_code"]
+                }
+            },
+            "instructions": "auto-claims/prompts/subrogation-agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+    ]
+}

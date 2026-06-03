@@ -1,0 +1,376 @@
+{
+    include "registries/llm_config.hocon",
+
+    "metadata": {
+        "description": "Health Claims Processing System — 8-agent network for claim adjudication. All outputs are advisory only. No PHI in any agent input or output — opaque identifiers only.",
+        "tags": ["health-claims", "adjudication", "fwa", "appeals", "advisory"]
+    },
+
+    "tools": [
+        {
+            "name": "claims_orchestrator",
+            "function": {
+                "description": "Orchestrates claim adjudication workflow. Routes to specialist agents. Advisory only — never makes binding decisions."
+            },
+            "instructions": "health-claims/prompts/claims_orchestrator.md",
+            "llm_config": ${llm_config},
+            "tools": [
+                "eligibility_agent",
+                "coding_validator",
+                "policy_lookup_agent",
+                "medical_necessity_agent",
+                "fraud_screening_agent",
+                "benefit_calculator"
+            ]
+        },
+        {
+            "name": "eligibility_agent",
+            "function": {
+                "description": "Verifies member eligibility, active coverage, deductible/OOPM accumulators, COB, and network status. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque claim reference number — no PHI."
+                        },
+                        "plan_ref": {
+                            "type": "string",
+                            "description": "Opaque plan identifier — no PHI."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Date of service in YYYY-MM-DD format."
+                        },
+                        "provider_npi": {
+                            "type": "string",
+                            "description": "Provider NPI number."
+                        },
+                        "network_status": {
+                            "type": "string",
+                            "description": "Optional. One of: in_network, out_of_network."
+                        }
+                    },
+                    "required": ["crn", "plan_ref", "service_date", "provider_npi"]
+                }
+            },
+            "instructions": "health-claims/prompts/eligibility_agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "coding_validator",
+            "function": {
+                "description": "Validates diagnosis and procedure codes against ICD-10-CM, CPT/HCPCS, NCCI edits, MUE limits, and CMS bundling rules. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque claim reference number — no PHI."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: professional, institutional, or dental."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Date of service in YYYY-MM-DD format."
+                        },
+                        "icd_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of ICD-10-CM diagnosis codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "cpt_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of CPT/HCPCS procedure codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "billed_amount": {
+                            "type": "number",
+                            "description": "Optional. Total billed amount."
+                        }
+                    },
+                    "required": ["crn", "claim_type", "service_date"]
+                }
+            },
+            "instructions": "health-claims/prompts/coding_validator.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "policy_lookup_agent",
+            "function": {
+                "description": "Retrieves plan benefit details, exclusions, limitations, prior auth requirements, and formulary status for the claim. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque claim reference number — no PHI."
+                        },
+                        "plan_ref": {
+                            "type": "string",
+                            "description": "Opaque plan identifier — no PHI."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: professional, institutional, or dental."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Date of service in YYYY-MM-DD format."
+                        },
+                        "cpt_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of CPT/HCPCS procedure codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "icd_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of ICD-10-CM diagnosis codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "prior_auth_ref": {
+                            "type": "string",
+                            "description": "Optional. Prior authorization reference — no PHI."
+                        }
+                    },
+                    "required": ["crn", "plan_ref", "claim_type", "service_date"]
+                }
+            },
+            "instructions": "health-claims/prompts/policy_lookup_agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "medical_necessity_agent",
+            "function": {
+                "description": "Evaluates medical necessity using evidence-based clinical criteria (InterQual/MCG style). Confidence-scored. ADVISORY ONLY — human clinician always reviews.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque claim reference number — no PHI."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: professional, institutional, or dental."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Date of service in YYYY-MM-DD format."
+                        },
+                        "plan_ref": {
+                            "type": "string",
+                            "description": "Opaque plan identifier — no PHI."
+                        },
+                        "cpt_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of CPT/HCPCS procedure codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "icd_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of ICD-10-CM diagnosis codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "prior_auth_ref": {
+                            "type": "string",
+                            "description": "Optional. Prior authorization reference — no PHI."
+                        }
+                    },
+                    "required": ["crn", "claim_type", "service_date", "plan_ref"]
+                }
+            },
+            "instructions": "health-claims/prompts/medical_necessity_agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "fraud_screening_agent",
+            "function": {
+                "description": "FWA scoring, pattern analysis, and anomaly detection. MUST NOT block STP hot path — always runs asynchronously. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque claim reference number — no PHI."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: professional, institutional, or dental."
+                        },
+                        "billed_amount": {
+                            "type": "number",
+                            "description": "Total billed amount."
+                        },
+                        "provider_npi": {
+                            "type": "string",
+                            "description": "Provider NPI number."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Date of service in YYYY-MM-DD format."
+                        },
+                        "plan_ref": {
+                            "type": "string",
+                            "description": "Opaque plan identifier — no PHI."
+                        },
+                        "cpt_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of CPT/HCPCS procedure codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "icd_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of ICD-10-CM diagnosis codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "network_status": {
+                            "type": "string",
+                            "description": "Optional. One of: in_network, out_of_network."
+                        }
+                    },
+                    "required": ["crn", "claim_type", "billed_amount", "provider_npi", "service_date", "plan_ref"]
+                }
+            },
+            "instructions": "health-claims/prompts/fraud_screening_agent.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "benefit_calculator",
+            "function": {
+                "description": "Calculates allowed amount, member cost share, ERA 835 values, and provider payment. Runs only on STP-eligible claims. Advisory only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "crn": {
+                            "type": "string",
+                            "description": "Opaque claim reference number — no PHI."
+                        },
+                        "claim_type": {
+                            "type": "string",
+                            "description": "Type of claim: professional, institutional, or dental."
+                        },
+                        "billed_amount": {
+                            "type": "number",
+                            "description": "Total billed amount."
+                        },
+                        "plan_ref": {
+                            "type": "string",
+                            "description": "Opaque plan identifier — no PHI."
+                        },
+                        "network_status": {
+                            "type": "string",
+                            "description": "One of: in_network, out_of_network."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Date of service in YYYY-MM-DD format."
+                        },
+                        "provider_npi": {
+                            "type": "string",
+                            "description": "Provider NPI number."
+                        },
+                        "cpt_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of CPT/HCPCS procedure codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": ["crn", "claim_type", "billed_amount", "plan_ref", "network_status", "service_date", "provider_npi"]
+                }
+            },
+            "instructions": "health-claims/prompts/benefit_calculator.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        },
+        {
+            "name": "appeals_advisor",
+            "function": {
+                "description": "Analyzes appeal grounds, prior claim decisions, and ACA/MHPAEA regulatory compliance. Confidence-scored. ADVISORY ONLY — human appeals coordinator decides.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "appeal_ref": {
+                            "type": "string",
+                            "description": "Opaque appeal reference — no PHI."
+                        },
+                        "crn": {
+                            "type": "string",
+                            "description": "Original claim CRN — no PHI."
+                        },
+                        "appeal_type": {
+                            "type": "string",
+                            "description": "One of: expedited, standard."
+                        },
+                        "appeal_grounds": {
+                            "type": "array",
+                            "description": "Array of appeal grounds strings.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "plan_ref": {
+                            "type": "string",
+                            "description": "Opaque plan identifier — no PHI."
+                        },
+                        "original_denial_reason": {
+                            "type": "string",
+                            "description": "Optional. Reason for the original denial."
+                        },
+                        "service_date": {
+                            "type": "string",
+                            "description": "Optional. Date of service in YYYY-MM-DD format."
+                        },
+                        "cpt_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of CPT/HCPCS procedure codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "icd_codes": {
+                            "type": "array",
+                            "description": "Optional. Array of ICD-10-CM diagnosis codes.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "mhpaea_applicable": {
+                            "type": "boolean",
+                            "description": "Optional. Whether MHPAEA parity rules apply."
+                        }
+                    },
+                    "required": ["appeal_ref", "crn", "appeal_type", "appeal_grounds", "plan_ref"]
+                }
+            },
+            "instructions": "health-claims/prompts/appeals_advisor.md",
+            "llm_config": ${llm_config},
+            "tools": []
+        }
+    ]
+}
